@@ -6,13 +6,15 @@ Redline IQ is a contract analysis web application that acts as a "digital lawyer
 ## Project Status
 **Current State**: V3 Complete + Bonus Features + Full Authentication - Living Legal Guardian Layer
 
-### Authentication (NEW)
-- **Replit Auth (OIDC)**: Full authentication via Replit Auth integration (Google, GitHub, Apple, email/password)
+### Authentication (Custom - RedlineIQ Branded)
+- **Custom Email/Password Auth**: Fully branded authentication pages (Login, Register) with RedlineIQ logo - no third-party provider buttons
+- **Secure Password Hashing**: bcryptjs with 12 salt rounds
 - **User Data Isolation**: All data tables include userId column - users can ONLY see their own data
 - **Protected Routes**: All API endpoints require authentication via isAuthenticated middleware
-- **Landing Page**: Logged-out users see a branded landing page with "Get Started" and "Sign In" buttons
-- **User Profile**: Sidebar displays user avatar, name, email with logout functionality
-- **Session Management**: Express sessions with PostgreSQL session store
+- **Landing Page**: Logged-out users see a branded landing page with "Get Started Free" and "Sign In" buttons
+- **Auth Pages**: /login and /register with RedlineIQ branding only
+- **User Profile**: Sidebar displays user name, email with logout functionality
+- **Session Management**: Express sessions with PostgreSQL session store (connect-pg-simple)
 
 ### Bonus Features (NEW)
 - **Explain Like I'm 12**: One-click simplified explanations with real-world examples for any clause
