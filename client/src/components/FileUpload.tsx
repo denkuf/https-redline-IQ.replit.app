@@ -1,12 +1,16 @@
 import { useState, useCallback } from "react";
-import { Upload, FileText, Image, X } from "lucide-react";
+import { Upload, FileText, Image, X, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { IndustryModeSelector } from "./IndustryModeSelector";
+import { RiskPreferencesForm } from "./RiskPreferencesForm";
+import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 interface FileUploadProps {
-  onUpload: (file: File | null, text: string | null) => void;
+  onUpload: (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences) => void;
   isLoading?: boolean;
 }
 
@@ -18,11 +22,21 @@ const ACCEPTED_TYPES = {
   "image/png": "PNG",
 };
 
+const defaultPreferences: RiskPreferences = {
+  riskTolerance: "moderate",
+  prioritizeFlexibility: false,
+  tolerateArbitration: false,
+  wantEasyTermination: true,
+};
+
 export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState("");
   const [activeTab, setActiveTab] = useState("upload");
+  const [industryMode, setIndustryMode] = useState<IndustryMode>("general");
+  const [riskPreferences, setRiskPreferences] = useState<RiskPreferences>(defaultPreferences);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -54,10 +68,11 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   };
 
   const handleSubmit = () => {
+    const prefs = showAdvanced ? riskPreferences : undefined;
     if (activeTab === "upload" && selectedFile) {
-      onUpload(selectedFile, null);
+      onUpload(selectedFile, null, industryMode, prefs);
     } else if (activeTab === "paste" && pastedText.trim()) {
-      onUpload(null, pastedText.trim());
+      onUpload(null, pastedText.trim(), industryMode, prefs);
     }
   };
 
@@ -72,6 +87,10 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
 
   return (
     <Card className="p-6">
+      <div className="mb-6">
+        <IndustryModeSelector value={industryMode} onChange={setIndustryMode} disabled={isLoading} />
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="upload" data-testid="tab-upload">
@@ -153,6 +172,18 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
           </p>
         </TabsContent>
       </Tabs>
+
+      <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="mt-6">
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-advanced-options">
+            <Settings2 className="h-4 w-4 mr-2" />
+            {showAdvanced ? "Hide" : "Show"} Advanced Options
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4">
+          <RiskPreferencesForm preferences={riskPreferences} onChange={setRiskPreferences} />
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="mt-6 flex justify-end">
         <Button

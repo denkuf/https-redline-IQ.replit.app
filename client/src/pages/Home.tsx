@@ -1,20 +1,34 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { FileUpload } from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, CheckCircle, AlertTriangle, FileText } from "lucide-react";
+import { Shield, CheckCircle, AlertTriangle, FileText, MessageSquare, Scale } from "lucide-react";
+import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, text }: { file: File | null; text: string | null }) => {
+    mutationFn: async ({ 
+      file, 
+      text, 
+      industryMode, 
+      riskPreferences 
+    }: { 
+      file: File | null; 
+      text: string | null; 
+      industryMode: IndustryMode;
+      riskPreferences?: RiskPreferences;
+    }) => {
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("industryMode", industryMode);
+        if (riskPreferences) {
+          formData.append("riskPreferences", JSON.stringify(riskPreferences));
+        }
         const response = await fetch("/api/contracts/upload", {
           method: "POST",
           body: formData,
@@ -25,7 +39,11 @@ export default function Home() {
         }
         return response.json();
       } else if (text) {
-        const response = await apiRequest("POST", "/api/contracts", { text });
+        const response = await apiRequest("POST", "/api/contracts", { 
+          text, 
+          industryMode, 
+          riskPreferences 
+        });
         return response.json();
       }
       throw new Error("No file or text provided");
@@ -46,20 +64,25 @@ export default function Home() {
     },
   });
 
-  const handleUpload = (file: File | null, text: string | null) => {
-    uploadMutation.mutate({ file, text });
+  const handleUpload = (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences) => {
+    uploadMutation.mutate({ file, text, industryMode, riskPreferences });
   };
 
   const features = [
     {
-      icon: FileText,
-      title: "Plain-English Summaries",
-      description: "Complex legal jargon translated into simple language you can understand",
+      icon: Scale,
+      title: "Should I Sign This?",
+      description: "Get a clear verdict with risk score (0-100) and top concerns to negotiate",
     },
     {
       icon: AlertTriangle,
-      title: "Risk Detection",
-      description: "Identify hidden traps, unfair terms, and potential issues before signing",
+      title: "Industry-Specific Analysis",
+      description: "Tailored analysis for leases, employment, freelance, insurance, and more",
+    },
+    {
+      icon: MessageSquare,
+      title: "Negotiation Scripts",
+      description: "Know exactly what to say to negotiate fairer terms",
     },
     {
       icon: CheckCircle,
@@ -76,14 +99,14 @@ export default function Home() {
         </div>
         <h1 className="text-3xl font-bold mb-3">Know What You're Signing</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Upload any contract and get an instant, plain-English analysis with risk flags and key terms.
-          Before you sign, run it through us.
+          Upload any contract and get an instant verdict: should you sign it? Plus plain-English analysis, 
+          risk flags with negotiation scripts, and key terms. Your digital lawyer in your pocket.
         </p>
       </div>
 
       <FileUpload onUpload={handleUpload} isLoading={uploadMutation.isPending} />
 
-      <div className="grid md:grid-cols-3 gap-6 mt-12">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
         {features.map((feature, i) => (
           <div
             key={i}

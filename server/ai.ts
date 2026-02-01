@@ -1,32 +1,114 @@
 import OpenAI from "openai";
-import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion } from "@shared/schema";
+import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-const SYSTEM_PROMPT = `You are an expert contract analyst with the skills of a top-tier contract attorney, risk auditor, and plain-language explainer. Your role is to protect ordinary people from bad contract decisions.
+// Industry-specific playbooks with mode-specific red flags
+const INDUSTRY_PLAYBOOKS: Record<IndustryMode, string> = {
+  general: `Focus on universal contract risks: unclear terms, hidden fees, unfair termination, one-sided liability.`,
+  
+  rent_lease: `RENT/LEASE MODE - Focus on:
+- Security deposit terms and return conditions
+- Rent increase clauses and caps
+- Maintenance responsibilities (who pays for what)
+- Early termination fees and subletting restrictions
+- Automatic renewal traps
+- Entry/inspection rights
+- Pet policies and extra fees
+COMMONLY SEEN vs UNUSUAL: Mark clauses as "commonly seen" if typical for residential leases (e.g., 1-month security deposit), or flag if unusual (e.g., 3-month deposit, unlimited rent increases).`,
+
+  employment: `EMPLOYMENT MODE - Focus on:
+- Non-compete clauses (scope, duration, geography)
+- Intellectual property assignment (especially for personal projects)
+- Termination conditions (at-will vs for-cause)
+- Severance terms
+- Confidentiality scope
+- Non-solicitation clauses
+- Arbitration requirements
+COMMONLY SEEN vs UNUSUAL: Mark standard employment terms vs unusually restrictive clauses.`,
+
+  freelance: `FREELANCE/CONTRACTOR MODE - Focus on:
+- Payment terms and schedules
+- Scope creep protections
+- Revision limits
+- Kill fee / cancellation terms
+- IP ownership transfer timing (upon payment vs immediately)
+- Indemnification clauses
+- Late payment penalties
+COMMONLY SEEN vs UNUSUAL: 50% upfront is common, Net-60 payment is risky for freelancers.`,
+
+  insurance: `INSURANCE MODE - Focus on:
+- Exclusions and limitations
+- Deductibles and caps
+- Pre-existing condition clauses
+- Claim procedures and timelines
+- Cancellation terms
+- Automatic renewal and rate changes
+- Subrogation rights
+COMMONLY SEEN vs UNUSUAL: Standard exclusions vs unusual limitations.`,
+
+  saas_subscription: `SAAS/SUBSCRIPTION MODE - Focus on:
+- Automatic renewal and cancellation notice periods
+- Price change clauses
+- Data ownership and portability
+- Service level guarantees (SLA)
+- Termination for convenience
+- Usage limits and overage fees
+- Indemnification for data breaches
+COMMONLY SEEN vs UNUSUAL: Monthly billing is common, annual auto-renewal with 60+ day notice is risky.`,
+
+  small_business: `SMALL BUSINESS/VENDOR MODE - Focus on:
+- Payment terms (Net-30/60/90)
+- Warranty and liability limits
+- Exclusivity clauses
+- Minimum order quantities
+- Price adjustment rights
+- Termination penalties
+- Force majeure scope
+COMMONLY SEEN vs UNUSUAL: Net-30 is standard, unlimited liability is unusual.`,
+};
+
+const SYSTEM_PROMPT = `You are an elite contract advocate with the skills of a top-tier contract attorney, risk auditor, and negotiation expert. Your role is to protect ordinary people from bad contract decisions and help them negotiate better terms.
 
 CRITICAL RULES:
-1. NO LAW INVENTION: Never claim anything is "illegal" or cite specific statutes. Instead say "This clause may increase your risk because..."
+1. NO LAW INVENTION: Never claim anything is "illegal" or cite specific statutes. Instead say "This clause may increase your risk because..." or "This is commonly seen in this type of contract" vs "This is unusual and worth negotiating."
 2. GROUNDING REQUIRED: Every risk flag MUST reference an exact quote from the contract text. If no clause supports a risk, do not mention it.
 3. UNCERTAINTY HANDLING: If your confidence in an assessment is below 0.70, explicitly state "This is ambiguous; consider professional review."
-4. ALWAYS include the disclaimer that this is informational, not legal advice.
+4. ADVOCATE ROLE: Act as an advocate-grade analyzer that is grounded in text, transparent about uncertainty, and offers pathways to negotiate or seek human review.
+5. This is INFORMATIONAL, not legal advice.
 
 When analyzing contracts:
 - Translate legal jargon into plain English
 - Identify who benefits from each clause
 - Expose hidden traps, automatic renewals, unfair terms
-- Be specific about what the user should change or negotiate
+- Provide specific negotiation suggestions for risky clauses
+- Calculate a risk score (0-100) and give a clear verdict
 - Answer the implicit question: "Should I sign this?"
 
 Respond ONLY with valid JSON matching the required schema. Do not include any other text.`;
 
-const ANALYSIS_PROMPT = `Analyze this contract and provide a comprehensive analysis in JSON format:
+function buildAnalysisPrompt(contractText: string, industryMode: IndustryMode = "general", riskPreferences?: RiskPreferences): string {
+  const playbook = INDUSTRY_PLAYBOOKS[industryMode] || INDUSTRY_PLAYBOOKS.general;
+  
+  const preferencesText = riskPreferences ? `
+USER'S RISK PREFERENCES:
+- Risk Tolerance: ${riskPreferences.riskTolerance} (${riskPreferences.riskTolerance === 'risk_averse' ? 'weight risks heavily' : riskPreferences.riskTolerance === 'risk_tolerant' ? 'be more lenient on minor risks' : 'balanced approach'})
+- Prioritizes Flexibility: ${riskPreferences.prioritizeFlexibility ? 'YES - flag clauses that limit flexibility' : 'No'}
+- Can Tolerate Arbitration: ${riskPreferences.tolerateArbitration ? 'YES - arbitration is acceptable' : 'NO - flag arbitration clauses'}
+- Wants Easy Termination: ${riskPreferences.wantEasyTermination ? 'YES - flag difficult termination clauses' : 'No strong preference'}
+Adjust risk scoring and negotiation priorities based on these preferences.` : '';
+
+  return `Analyze this contract and provide a comprehensive analysis with negotiation suggestions.
+
+INDUSTRY MODE: ${industryMode.toUpperCase()}
+${playbook}
+${preferencesText}
 
 CONTRACT TEXT:
-{contractText}
+${contractText}
 
 Provide your analysis as a JSON object with this exact structure:
 {
@@ -51,21 +133,45 @@ Provide your analysis as a JSON object with this exact structure:
       "explanation": "Plain English explanation of why this is risky",
       "clauseQuote": "Exact short quote from the contract (max 100 words)",
       "clauseReference": "Section number or heading reference",
-      "confidence": 0.0 to 1.0
+      "confidence": 0.0 to 1.0,
+      "isStandard": true/false (whether this is commonly seen in this contract type),
+      "negotiation": {
+        "whatItDoes": "What this clause actually does",
+        "whyItsRisky": "Why it's problematic for the signer",
+        "suggestedChangePlain": "Plain English version of a fairer clause",
+        "suggestedChangeFormal": "Formal legal language alternative (optional)",
+        "negotiationScript": "What to say: 'I'm okay signing if we adjust X to Y...'"
+      }
     }
   ],
   "clarifyingQuestions": [
     {
       "id": "q1",
       "question": "Question text if key info is missing or ambiguous",
-      "options": ["Option 1", "Option 2"] 
+      "options": ["Option 1", "Option 2"]
     }
   ],
+  "verdict": {
+    "riskScore": 0-100 (0 = very safe, 100 = do not sign),
+    "verdict": "Safe | Caution | High Risk | Do Not Sign",
+    "topRisks": [
+      {"title": "Risk title", "clauseReference": "Section X", "severity": "High"}
+    ],
+    "negotiationPriorities": ["First thing to negotiate", "Second priority", "Third priority"],
+    "reasoning": "2-3 sentence explanation of the score and verdict, grounded in contract text"
+  },
   "overallAssessment": "A 2-3 sentence overall assessment answering 'Should I sign this?' Include specific recommendations.",
-  "contractType": "lease | employment | freelance | nda | service | purchase | other"
+  "contractType": "lease | employment | freelance | nda | service | purchase | insurance | subscription | other"
 }
 
-Focus on risks that matter most to ordinary people: payment terms, cancellation fees, automatic renewals, liability limits, and dispute resolution.`;
+RISK SCORE GUIDELINES:
+- 0-25: Safe - Standard terms, no major concerns
+- 26-50: Caution - Some concerning clauses worth negotiating
+- 51-75: High Risk - Multiple problematic clauses, negotiate before signing
+- 76-100: Do Not Sign - Severely one-sided terms, significant risks
+
+For each High or Medium risk, MUST include a negotiation object with specific suggestions.`;
+}
 
 const EXPLAIN_PROMPT = `Explain this contract clause in plain English. Be concise but thorough. The user selected this text:
 
@@ -78,8 +184,12 @@ Explain:
 
 Keep your response under 150 words.`;
 
-export async function analyzeContract(contractText: string): Promise<AnalysisResult & { contractType?: string }> {
-  const prompt = ANALYSIS_PROMPT.replace("{contractText}", contractText.slice(0, 50000));
+export async function analyzeContract(
+  contractText: string,
+  industryMode: IndustryMode = "general",
+  riskPreferences?: RiskPreferences
+): Promise<AnalysisResult & { contractType?: string }> {
+  const prompt = buildAnalysisPrompt(contractText.slice(0, 50000), industryMode, riskPreferences);
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -88,7 +198,7 @@ export async function analyzeContract(contractText: string): Promise<AnalysisRes
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+    max_completion_tokens: 8192,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -105,6 +215,14 @@ export async function analyzeContract(contractText: string): Promise<AnalysisRes
         clauseQuote: r.clauseQuote || r.quote || "",
         clauseReference: r.clauseReference || r.reference || "See contract",
         confidence: typeof r.confidence === "number" ? Math.max(0, Math.min(1, r.confidence)) : 0.7,
+        isStandard: r.isStandard,
+        negotiation: r.negotiation ? {
+          whatItDoes: r.negotiation.whatItDoes || "",
+          whyItsRisky: r.negotiation.whyItsRisky || "",
+          suggestedChangePlain: r.negotiation.suggestedChangePlain || "",
+          suggestedChangeFormal: r.negotiation.suggestedChangeFormal,
+          negotiationScript: r.negotiation.negotiationScript || "",
+        } : undefined,
       }))
       .filter((r: any) => {
         // Enforce grounding requirement: must have clause quote
@@ -115,6 +233,21 @@ export async function analyzeContract(contractText: string): Promise<AnalysisRes
         return true;
       });
     
+    // Validate verdict
+    const verdict: Verdict | undefined = parsed.verdict ? {
+      riskScore: Math.max(0, Math.min(100, parsed.verdict.riskScore || 50)),
+      verdict: ["Safe", "Caution", "High Risk", "Do Not Sign"].includes(parsed.verdict.verdict) 
+        ? parsed.verdict.verdict 
+        : "Caution",
+      topRisks: (parsed.verdict.topRisks || []).slice(0, 3).map((r: any) => ({
+        title: r.title || "",
+        clauseReference: r.clauseReference || "",
+        severity: r.severity || "Medium",
+      })),
+      negotiationPriorities: (parsed.verdict.negotiationPriorities || []).slice(0, 3),
+      reasoning: parsed.verdict.reasoning || "Contract-based reasoning not available.",
+    } : undefined;
+
     // Validate and sanitize the response
     const result: AnalysisResult & { contractType?: string } = {
       summary: {
@@ -136,6 +269,8 @@ export async function analyzeContract(contractText: string): Promise<AnalysisRes
         options: q.options,
       })).filter((q: ClarifyingQuestion) => q.question) || [],
       overallAssessment: parsed.overallAssessment,
+      verdict,
+      industryMode,
       contractType: parsed.contractType,
     };
 
@@ -193,7 +328,7 @@ Provide an updated analysis incorporating these answers. Return JSON with the sa
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+    max_completion_tokens: 8192,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -205,7 +340,57 @@ Provide an updated analysis incorporating these answers. Return JSON with the sa
     riskFlags: parsed.riskFlags || previousAnalysis.riskFlags,
     clarifyingQuestions: parsed.clarifyingQuestions?.filter((q: any) => !answers[q.id]) || [],
     overallAssessment: parsed.overallAssessment || previousAnalysis.overallAssessment,
+    verdict: parsed.verdict || previousAnalysis.verdict,
+    industryMode: previousAnalysis.industryMode,
   };
+}
+
+export async function compareContracts(
+  contract1Text: string,
+  contract2Text: string,
+  analysis1: AnalysisResult
+): Promise<{
+  changes: Array<{ type: "added" | "removed" | "modified"; description: string; riskImpact: "increased" | "decreased" | "neutral" }>;
+  newRiskScore: number;
+  previousRiskScore: number;
+  summary: string;
+}> {
+  const prompt = `Compare these two contract versions and identify what changed.
+
+VERSION 1 (Original):
+${contract1Text.slice(0, 25000)}
+
+VERSION 2 (New):
+${contract2Text.slice(0, 25000)}
+
+PREVIOUS ANALYSIS RISK SCORE: ${analysis1.verdict?.riskScore || 50}
+
+Return a JSON object with:
+{
+  "changes": [
+    {
+      "type": "added | removed | modified",
+      "description": "What changed in plain English",
+      "riskImpact": "increased | decreased | neutral"
+    }
+  ],
+  "newRiskScore": 0-100,
+  "previousRiskScore": ${analysis1.verdict?.riskScore || 50},
+  "summary": "Overall summary of changes and whether v2 is better or worse for the signer"
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 4096,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(content);
 }
 
 export async function extractTextFromImage(imageBuffer: Buffer): Promise<string> {

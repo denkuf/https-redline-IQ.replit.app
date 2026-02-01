@@ -1,0 +1,83 @@
+V2 — Elite Advocate + Market Breaker Layer
+V2 Goal
+Turn it from “explainer” into a powerful advocate that helps users negotiate and decide safely.
+V2 Features (Add After V1 is Stable)
+1) Industry Modes (Expert Playbooks)
+Add selectable modes:
+•	Rent/Lease
+•	Employment
+•	Freelance/Contractor
+•	Insurance
+•	SaaS/Subscription
+•	Small Business/Vendor
+Each mode adds:
+•	Mode-specific red flags
+•	Typical “standard vs not standard” guidance
+Important: still grounded in the contract text. “Standard” must be phrased carefully: “Commonly seen” not “legally required.”
+________________________________________
+2) “Should I Sign This?” Button (Verdict Engine)
+Create a verdict panel with:
+•	Risk Score: 0–100
+•	Verdict labels:
+o	Safe
+o	Caution
+o	High Risk
+o	Do Not Sign (as-is)
+•	Top 3 risks (with clause grounding)
+•	“What to negotiate first” (top 3)
+Must include “Reasoning is contract-based only.”
+________________________________________
+3) Negotiation Generator (Redline Suggestions)
+For each high-risk clause:
+•	Provide:
+o	“What this clause does”
+o	“Why it’s risky”
+o	Suggested replacement language (plain English + optional formal version)
+o	Negotiation script:
+“I’m okay signing if we adjust X to Y…”
+(Still with disclaimers and grounded references.)
+________________________________________
+4) Side-by-Side Comparison (Version Control)
+Allow users to upload:
+•	Contract v1 vs v2
+Then:
+•	Show what changed
+•	Highlight risk increase/decrease
+•	Updated score
+________________________________________
+5) Personal Risk Preferences
+Let users set:
+•	“I’m risk-averse”
+•	“I prioritize flexibility”
+•	“I can tolerate arbitration”
+•	“I want easy termination”
+Then tailor:
+•	risk scoring weights
+•	negotiation priorities
+________________________________________
+6) Advanced Exports
+•	“Negotiation Pack” PDF:
+o	Top risks
+o	Suggested changes
+o	Scripts
+o	Questions to ask
+________________________________________
+V2 Acceptance Tests
+1.	Same contract in different mode changes risk emphasis (but remains clause-grounded)
+2.	“Should I sign?” produces score + top 3 risks with clause references
+3.	Negotiation generator produces clause-by-clause suggestions
+4.	Compare v1 vs v2 contract highlights changes accurately
+5.	Negotiation pack PDF exports correctly
+________________________________________
+Hard Enforcement Rule (Both Versions)
+The agent must never pretend to be a real lawyer.
+Instead, it acts like an advocate-grade analyzer that is:
+•	grounded in text
+•	transparent about uncertainty
+•	extremely cautious
+and offers a pathway to human review later.
+
+
+
+
+

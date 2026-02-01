@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { AlertTriangle, Quote } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, Quote, CheckCircle } from "lucide-react";
 import { RiskBadge } from "./RiskBadge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
+import { NegotiationSuggestion } from "./NegotiationSuggestion";
 import type { RiskFlag } from "@shared/schema";
 
 interface RiskFlagsProps {
@@ -22,7 +24,7 @@ export function RiskFlags({ riskFlags }: RiskFlagsProps) {
         <CardContent>
           <div className="flex flex-col items-center py-8 text-center">
             <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
-              <span className="text-2xl">✓</span>
+              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
             <p className="font-medium text-green-700 dark:text-green-400">No significant risks detected</p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -69,9 +71,15 @@ export function RiskFlags({ riskFlags }: RiskFlagsProps) {
           {sortedFlags.map((risk, i) => (
             <AccordionItem key={i} value={`risk-${i}`} data-testid={`risk-flag-${i}`}>
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-3 text-left">
+                <div className="flex items-center gap-3 text-left flex-wrap">
                   <RiskBadge severity={risk.severity} />
                   <span className="font-medium">{risk.title}</span>
+                  {risk.isStandard === false && (
+                    <Badge variant="outline" className="text-xs">Unusual</Badge>
+                  )}
+                  {risk.negotiation && (
+                    <Badge variant="secondary" className="text-xs">Has Suggestions</Badge>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
@@ -94,6 +102,10 @@ export function RiskFlags({ riskFlags }: RiskFlagsProps) {
                   <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
                     This assessment has lower confidence — this clause may be ambiguous. Consider professional review.
                   </p>
+                )}
+
+                {risk.negotiation && (
+                  <NegotiationSuggestion suggestion={risk.negotiation} riskTitle={risk.title} />
                 )}
               </AccordionContent>
             </AccordionItem>

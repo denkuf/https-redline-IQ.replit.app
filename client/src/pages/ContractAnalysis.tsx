@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
@@ -13,8 +14,9 @@ import { OverallAssessment } from "@/components/OverallAssessment";
 import { AnalysisLoading } from "@/components/AnalysisLoading";
 import { ExportButton } from "@/components/ExportButton";
 import { Disclaimer } from "@/components/Disclaimer";
+import { VerdictPanel } from "@/components/VerdictPanel";
 import { apiRequest } from "@/lib/queryClient";
-import type { Contract } from "@shared/schema";
+import { industryModeLabels, type Contract, type Verdict } from "@shared/schema";
 
 export default function ContractAnalysis() {
   const params = useParams<{ id: string }>();
@@ -98,13 +100,32 @@ export default function ContractAnalysis() {
             <h1 className="text-2xl font-bold" data-testid="text-contract-name">
               {contract.name}
             </h1>
-            <p className="text-muted-foreground">
-              {contract.type !== "unknown" ? contract.type : "Contract Analysis"}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">
+                {contract.type !== "unknown" ? contract.type : "Contract Analysis"}
+              </span>
+              {contract.industryMode && contract.industryMode !== "general" && (
+                <Badge variant="outline" className="text-xs">
+                  {industryModeLabels[contract.industryMode as keyof typeof industryModeLabels] || contract.industryMode}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
         {!isAnalyzing && analysis && (
-          <ExportButton contract={contract} />
+          <div className="flex items-center gap-2">
+            <ExportButton contract={contract} />
+            {analysis.riskFlags?.some(r => r.negotiation) && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(`/api/contracts/${contractId}/export/negotiation-pack`, "_blank")}
+                data-testid="button-export-negotiation-pack"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Negotiation Pack
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -124,7 +145,11 @@ export default function ContractAnalysis() {
             />
           )}
 
-          {analysis.overallAssessment && (
+          {analysis.verdict && (
+            <VerdictPanel verdict={analysis.verdict as Verdict} />
+          )}
+
+          {analysis.overallAssessment && !analysis.verdict && (
             <OverallAssessment
               assessment={analysis.overallAssessment}
               riskCount={analysis.riskFlags?.length || 0}
