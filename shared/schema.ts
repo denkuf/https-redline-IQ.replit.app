@@ -3,20 +3,9 @@ import { pgTable, text, varchar, serial, timestamp, jsonb, integer, boolean } fr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table (for future auth)
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// Re-export auth models (users, sessions)
+export * from "./models/auth";
+import { users } from "./models/auth";
 
 // Industry modes for contract analysis
 export const industryModes = [
@@ -137,6 +126,7 @@ export type RiskPreferences = z.infer<typeof riskPreferencesSchema>;
 // Contracts table
 export const contracts = pgTable("contracts", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
   name: text("name").notNull(),
   type: text("type").default("unknown"),
   industryMode: text("industry_mode").default("general"),
@@ -160,6 +150,7 @@ export type InsertContract = z.infer<typeof insertContractSchema>;
 // User settings table with risk preferences
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
   notificationsEnabled: text("notifications_enabled").default("true"),
   autoDeleteDays: integer("auto_delete_days").default(30),
   riskPreferences: jsonb("risk_preferences").$type<RiskPreferences | null>(),
