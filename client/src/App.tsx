@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2 } from "lucide-react";
 import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
 import History from "@/pages/History";
@@ -16,6 +18,7 @@ import QuickScan from "@/pages/QuickScan";
 import NegotiationCoach from "@/pages/NegotiationCoach";
 import SignedContracts, { SignedContractDetail } from "@/pages/SignedContracts";
 import Emergency from "@/pages/Emergency";
+import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -37,7 +40,7 @@ function Router() {
   );
 }
 
-function AppLayout() {
+function AuthenticatedLayout() {
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -61,12 +64,37 @@ function AppLayout() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Landing />;
+  }
+
+  return <AuthenticatedLayout />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <AppLayout />
+          <AppContent />
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>

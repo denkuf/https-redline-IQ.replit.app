@@ -11,8 +11,11 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import logoImage from "@/assets/logo.png";
 
 const analyzeItems = [
@@ -134,9 +137,53 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-4">
+        <UserProfile />
         <Disclaimer />
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function UserProfile() {
+  const { user, logout, isLoggingOut } = useAuth();
+  
+  if (!user) return null;
+
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "User";
+  const initials = user.firstName && user.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    : user.email?.[0]?.toUpperCase() || "U";
+
+  return (
+    <div className="border-t pt-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={user.profileImageUrl || undefined} alt={displayName} />
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" data-testid="text-user-name">
+            {displayName}
+          </p>
+          {user.email && (
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
+              {user.email}
+            </p>
+          )}
+        </div>
+      </div>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="w-full" 
+        onClick={() => logout()}
+        disabled={isLoggingOut}
+        data-testid="button-logout"
+      >
+        <LogOut className="h-4 w-4 mr-2" />
+        {isLoggingOut ? "Signing out..." : "Sign Out"}
+      </Button>
+    </div>
   );
 }
