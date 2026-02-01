@@ -19,6 +19,8 @@ import NegotiationCoach from "@/pages/NegotiationCoach";
 import SignedContracts, { SignedContractDetail } from "@/pages/SignedContracts";
 import Emergency from "@/pages/Emergency";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -75,6 +77,17 @@ function LoadingScreen() {
   );
 }
 
+function PublicRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route component={Landing} />
+    </Switch>
+  );
+}
+
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -83,7 +96,7 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <Landing />;
+    return <PublicRouter />;
   }
 
   return <AuthenticatedLayout />;

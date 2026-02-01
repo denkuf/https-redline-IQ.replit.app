@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { analyzeContract, explainClause, reanalyzeWithAnswers, compareContracts } from "./ai";
 import { parseFile, generateContractName } from "./fileParser";
 import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 const upload = multer({
@@ -13,9 +13,9 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
 });
 
-// Helper to get userId from authenticated request
+// Helper to get userId from authenticated session
 function getUserId(req: Request): string {
-  return (req as any).user?.claims?.sub;
+  return (req.session as any).userId;
 }
 
 export async function registerRoutes(
@@ -23,8 +23,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Setup authentication FIRST (before other routes)
-  await setupAuth(app);
+  // Register auth routes (login, register, logout, user)
   registerAuthRoutes(app);
   
   // Get all contracts (requires auth)

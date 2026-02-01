@@ -12,7 +12,7 @@ export default function Landing() {
             <img src={redlineIqLogo} alt="RedlineIQ" className="h-10" data-testid="img-logo" />
             <span className="text-xl font-bold text-foreground">RedlineIQ</span>
           </div>
-          <a href="/api/login" data-testid="link-login">
+          <a href="/login" data-testid="link-login">
             <Button>Sign In</Button>
           </a>
         </div>
@@ -34,7 +34,7 @@ export default function Landing() {
                 in seconds, highlights hidden risks, and tells you exactly what to negotiate.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="/api/login" data-testid="link-get-started">
+                <a href="/register" data-testid="link-get-started">
                   <Button size="lg" className="text-lg px-8">
                     Get Started Free
                   </Button>
@@ -128,7 +128,7 @@ export default function Landing() {
               Your contracts are yours alone. Every document you upload is encrypted and 
               isolated to your account. No one else can see your data — ever.
             </p>
-            <a href="/api/login" data-testid="link-signup-bottom">
+            <a href="/register" data-testid="link-signup-bottom">
               <Button size="lg">Start Analyzing Contracts</Button>
             </a>
           </div>
