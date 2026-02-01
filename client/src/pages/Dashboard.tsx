@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Bell,
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  Radar
 } from "lucide-react";
 import type { ContractObligation, SignedContract, Contract } from "@shared/schema";
 
@@ -32,6 +33,10 @@ export default function Dashboard() {
 
   const { data: legalScore } = useQuery<{ currentScore: number; contractsAnalyzed: number }>({
     queryKey: ["/api/legal-score"],
+  });
+
+  const { data: expiryRadar } = useQuery<{ alerts: ContractObligation[]; activeContracts: number }>({
+    queryKey: ["/api/expiry-radar"],
   });
 
   const getDaysUntil = (date: Date | string | null) => {
@@ -272,6 +277,62 @@ export default function Dashboard() {
           </Card>
         </Link>
       </div>
+
+      {expiryRadar?.alerts && expiryRadar.alerts.length > 0 && (
+        <Card className="mt-8" data-testid="card-expiry-radar">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Radar className="h-5 w-5 text-primary" />
+              Contract Expiry Radar
+            </CardTitle>
+            <CardDescription>
+              Important renewal and termination windows coming up
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {expiryRadar.alerts.map((alert) => {
+                const days = getDaysUntil(alert.dueDate);
+                return (
+                  <div
+                    key={alert.id}
+                    className={`p-4 rounded-lg border-l-4 ${
+                      alert.type === "termination_window"
+                        ? "bg-destructive/10 border-destructive"
+                        : "bg-secondary/30 border-secondary"
+                    }`}
+                    data-testid={`expiry-alert-${alert.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        {alert.type === "termination_window" ? (
+                          <Clock className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <Calendar className="h-5 w-5 text-primary" />
+                        )}
+                        <div>
+                          <div className="font-medium">{alert.title}</div>
+                          {alert.description && (
+                            <div className="text-sm text-muted-foreground">{alert.description}</div>
+                          )}
+                        </div>
+                      </div>
+                      {getUrgencyBadge(days)}
+                    </div>
+                    {days !== null && days <= 14 && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {alert.type === "termination_window"
+                          ? "This is your window to cancel without penalty. Act now if you don't want to continue."
+                          : "This contract will auto-renew soon. Review the terms if you want to make changes."}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -4,9 +4,19 @@
 Redline IQ is a contract analysis web application that acts as a "digital lawyer in your pocket" and a "personal legal nervous system." It helps ordinary people understand contracts before signing by providing AI-powered plain-English summaries, risk detection with exact clause references, key terms extraction, negotiation guidance, contract monitoring, and emergency legal triage.
 
 ## Project Status
-**Current State**: V3 Complete - Living Legal Guardian Layer
+**Current State**: V3 Complete + Bonus Features - Living Legal Guardian Layer
 
-### V3 Features (NEW)
+### Bonus Features (NEW)
+- **Explain Like I'm 12**: One-click simplified explanations with real-world examples for any clause
+- **Visual Risk Heatmap**: Color-coded contract sections (Safe/Caution/Danger) for instant visual clarity
+- **What If? Simulator**: Ask scenario questions ("What if I cancel early?") and get answers based on contract text
+- **Contract Expiry Radar**: Dashboard alerts for upcoming renewals and termination windows
+- **Is This Normal?**: Pattern awareness - check if a clause is common, unusual, or a red flag for its contract type
+- **Share-Safe Summary**: Generate a non-legal, friendly summary to share with partners/family
+- **Trust Seal**: After analysis, displays "Reviewed by Contract Advocate AI - Grounded in your document"
+- **Updated App Logo**: New RedlineIQ branded logo displayed in sidebar
+
+### V3 Features
 - **Red Flag Shield (Quick Scan)**: Instant clause analysis - paste any text from contracts, emails, WhatsApp to detect red flags
 - **Legal Guardian Dashboard**: Central hub showing legal safety score, active contracts, upcoming obligations
 - **Signed Contracts Monitoring**: Track signed contracts with deadline and obligation management

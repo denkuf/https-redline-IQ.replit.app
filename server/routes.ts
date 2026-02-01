@@ -622,5 +622,108 @@ export async function registerRoutes(
     }
   });
 
+  // Explain Like I'm 12 - simplified explanation
+  app.post("/api/explain-simple", async (req: Request, res: Response) => {
+    try {
+      const { clauseText, riskTitle } = req.body;
+      if (!clauseText) {
+        return res.status(400).json({ message: "Clause text is required" });
+      }
+
+      const { explainLikeImTwelve } = await import("./ai");
+      const explanation = await explainLikeImTwelve(clauseText, riskTitle);
+
+      res.json(explanation);
+    } catch (error) {
+      console.error("Simple explanation error:", error);
+      res.status(500).json({ message: "Failed to generate simple explanation" });
+    }
+  });
+
+  // Is This Normal? - check if clause is standard
+  app.post("/api/is-normal", async (req: Request, res: Response) => {
+    try {
+      const { clauseText, contractType, industryMode } = req.body;
+      if (!clauseText) {
+        return res.status(400).json({ message: "Clause text is required" });
+      }
+
+      const { isThisNormal } = await import("./ai");
+      const result = await isThisNormal(clauseText, contractType || "general", industryMode);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Is normal check error:", error);
+      res.status(500).json({ message: "Failed to check clause" });
+    }
+  });
+
+  // What If? Simulator - scenario questions
+  app.post("/api/what-if", async (req: Request, res: Response) => {
+    try {
+      const { scenario, contractId } = req.body;
+      if (!scenario || !contractId) {
+        return res.status(400).json({ message: "Scenario and contract ID are required" });
+      }
+
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+
+      const { whatIfSimulator } = await import("./ai");
+      const result = await whatIfSimulator(scenario, contract.extractedText, contract.type || "general");
+
+      res.json(result);
+    } catch (error) {
+      console.error("What if simulation error:", error);
+      res.status(500).json({ message: "Failed to simulate scenario" });
+    }
+  });
+
+  // Share-Safe Summary
+  app.get("/api/contracts/:id/share-summary", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const contract = await storage.getContract(id);
+      
+      if (!contract || !contract.analysis) {
+        return res.status(404).json({ message: "Contract not found or not analyzed" });
+      }
+
+      const { generateShareSafeSummary } = await import("./ai");
+      const summary = await generateShareSafeSummary(contract.name, contract.analysis);
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Share summary error:", error);
+      res.status(500).json({ message: "Failed to generate shareable summary" });
+    }
+  });
+
+  // Get upcoming contract expirations (Contract Expiry Radar)
+  app.get("/api/expiry-radar", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const days = parseInt(req.query.days as string) || 30;
+      
+      const signedContracts = await storage.getSignedContracts(userId);
+      const upcomingObligations = await storage.getUpcomingObligations(userId, days);
+      
+      // Filter for renewal and termination window obligations
+      const expiryAlerts = upcomingObligations.filter(o => 
+        o.type === 'renewal' || o.type === 'termination_window'
+      );
+
+      res.json({
+        alerts: expiryAlerts,
+        activeContracts: signedContracts.filter(sc => sc.status === 'active').length,
+      });
+    } catch (error) {
+      console.error("Expiry radar error:", error);
+      res.status(500).json({ message: "Failed to check expiry radar" });
+    }
+  });
+
   return httpServer;
 }

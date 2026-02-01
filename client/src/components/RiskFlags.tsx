@@ -5,13 +5,17 @@ import { AlertTriangle, Quote, CheckCircle } from "lucide-react";
 import { RiskBadge } from "./RiskBadge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { NegotiationSuggestion } from "./NegotiationSuggestion";
+import { ExplainSimple } from "./ExplainSimple";
+import { IsThisNormal } from "./IsThisNormal";
 import type { RiskFlag } from "@shared/schema";
 
 interface RiskFlagsProps {
   riskFlags: RiskFlag[];
+  contractType?: string;
+  industryMode?: string;
 }
 
-export function RiskFlags({ riskFlags }: RiskFlagsProps) {
+export function RiskFlags({ riskFlags, contractType = "general", industryMode = "general" }: RiskFlagsProps) {
   if (!riskFlags.length) {
     return (
       <Card>
@@ -107,6 +111,15 @@ export function RiskFlags({ riskFlags }: RiskFlagsProps) {
                 {risk.negotiation && (
                   <NegotiationSuggestion suggestion={risk.negotiation} riskTitle={risk.title} />
                 )}
+
+                <div className="flex flex-wrap gap-2 pt-3 border-t">
+                  <ExplainSimple clauseText={risk.clauseQuote} riskTitle={risk.title} />
+                  <IsThisNormal 
+                    clauseText={risk.clauseQuote} 
+                    contractType={contractType}
+                    industryMode={industryMode}
+                  />
+                </div>
               </AccordionContent>
             </AccordionItem>
           ))}

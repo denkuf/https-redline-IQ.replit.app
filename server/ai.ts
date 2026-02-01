@@ -624,6 +624,196 @@ GUIDELINES:
     max_completion_tokens: 2048,
   });
 
-  const content = response.choices[0]?.message?.content || "{}";
-  return JSON.parse(content);
+  const emergencyContent = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(emergencyContent);
+}
+
+// Explain Like I'm 12 - super simple explanation with real-world example
+export async function explainLikeImTwelve(
+  clauseText: string,
+  riskTitle?: string
+): Promise<{
+  simpleExplanation: string;
+  realWorldExample: string;
+  bottomLine: string;
+}> {
+  const prompt = `Explain this contract clause like you're explaining to a 12-year-old. Use simple words and a relatable real-world example.
+
+CLAUSE:
+"${clauseText}"
+${riskTitle ? `\nRISK: ${riskTitle}` : ""}
+
+Respond in JSON:
+{
+  "simpleExplanation": "A super simple explanation using everyday words (2-3 sentences max)",
+  "realWorldExample": "A relatable real-world example using everyday situations kids understand",
+  "bottomLine": "The one thing to remember (one sentence starting with 'This means...')"
+}
+
+GUIDELINES:
+- NO legal jargon at all
+- Use examples like: lending toys, allowance, playground rules, borrowing games
+- Keep it SHORT and CLEAR`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You explain complex legal concepts in the simplest possible way. Think: how would you explain this to your little sibling?" },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 512,
+  });
+
+  const eli12Content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(eli12Content);
+}
+
+// Is This Normal? - Check if a clause is standard or unusual
+export async function isThisNormal(
+  clauseText: string,
+  contractType: string,
+  industryMode: string = "general"
+): Promise<{
+  isNormal: boolean;
+  verdict: "Common" | "Unusual" | "Red Flag";
+  explanation: string;
+  frequency: string;
+  betterAlternative?: string;
+}> {
+  const prompt = `Analyze whether this clause is normal/standard for its contract type.
+
+CLAUSE:
+"${clauseText}"
+
+CONTRACT TYPE: ${contractType}
+INDUSTRY: ${industryMode}
+
+Respond in JSON:
+{
+  "isNormal": true/false,
+  "verdict": "Common" or "Unusual" or "Red Flag",
+  "explanation": "Why this is common/unusual (1-2 sentences)",
+  "frequency": "How often this is seen (e.g., 'Very common - seen in ~80% of contracts', 'Rare - only ~10% include this')",
+  "betterAlternative": "If unusual, what would be more standard (optional, omit if common)"
+}
+
+GUIDELINES:
+- Be honest but not alarmist
+- Base on typical industry patterns
+- "Common" = standard, expected
+- "Unusual" = not typical but not necessarily bad
+- "Red Flag" = rarely seen and usually disadvantageous`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You are an expert on contract patterns and industry standards. You help people understand if clauses are typical or unusual." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 512,
+  });
+
+  const normalContent = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(normalContent);
+}
+
+// What If? Simulator - answer scenario questions based on contract
+export async function whatIfSimulator(
+  scenario: string,
+  contractText: string,
+  contractType: string
+): Promise<{
+  answer: string;
+  relevantClauses: { quote: string; explanation: string }[];
+  worstCase: string;
+  bestCase: string;
+  advice: string;
+}> {
+  const prompt = `The user wants to know what happens in a specific scenario based on their contract.
+
+SCENARIO:
+"${scenario}"
+
+CONTRACT TYPE: ${contractType}
+
+CONTRACT TEXT (relevant excerpts):
+${contractText.substring(0, 8000)}
+
+Respond in JSON:
+{
+  "answer": "Clear answer to what would happen (2-3 sentences)",
+  "relevantClauses": [
+    { "quote": "Exact quote from contract", "explanation": "What this means for the scenario" }
+  ],
+  "worstCase": "What could happen in the worst case (1 sentence)",
+  "bestCase": "What could happen in the best case (1 sentence)",
+  "advice": "Practical advice for this scenario (1-2 sentences)"
+}
+
+GUIDELINES:
+- Base EVERYTHING on the actual contract text
+- If the contract doesn't address this scenario, say so
+- Be practical and helpful
+- Never invent clauses`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You help people understand their contract by answering 'what if' questions. You only reference actual contract text." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 1024,
+  });
+
+  const whatIfContent = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(whatIfContent);
+}
+
+// Share-Safe Summary - generate a non-legal summary for sharing
+export async function generateShareSafeSummary(
+  contractName: string,
+  analysis: any
+): Promise<{
+  summary: string;
+  keyPoints: string[];
+  concerns: string[];
+  recommendation: string;
+}> {
+  const prompt = `Generate a brief, non-legal summary of this contract analysis that someone could share with their partner, parent, or friend.
+
+CONTRACT: ${contractName}
+RISK SCORE: ${analysis.verdict?.riskScore || 'Unknown'}
+VERDICT: ${analysis.verdict?.verdict || 'Unknown'}
+TOP RISKS: ${analysis.verdict?.topRisks?.map((r: any) => r.title).join(", ") || 'None'}
+KEY TERMS: ${analysis.keyTerms?.slice(0, 3).map((t: any) => `${t.category}: ${t.value}`).join("; ") || 'None'}
+
+Respond in JSON:
+{
+  "summary": "A 2-3 sentence casual summary anyone can understand",
+  "keyPoints": ["3-4 main things to know about this contract"],
+  "concerns": ["Any concerns worth discussing (0-3 items)"],
+  "recommendation": "A simple recommendation (e.g., 'Looks okay to sign', 'Worth discussing the termination fee first')"
+}
+
+GUIDELINES:
+- Write like you're texting a friend
+- NO legal jargon
+- Be honest but not scary
+- Focus on what matters most`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You write casual, friendly summaries that anyone can understand. Think: how would you explain this contract to your mom?" },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 512,
+  });
+
+  const shareSafeContent = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(shareSafeContent);
 }

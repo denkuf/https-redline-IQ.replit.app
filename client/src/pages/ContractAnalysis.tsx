@@ -15,6 +15,10 @@ import { AnalysisLoading } from "@/components/AnalysisLoading";
 import { ExportButton } from "@/components/ExportButton";
 import { Disclaimer } from "@/components/Disclaimer";
 import { VerdictPanel } from "@/components/VerdictPanel";
+import { TrustSeal } from "@/components/TrustSeal";
+import { WhatIfSimulator } from "@/components/WhatIfSimulator";
+import { ShareSafeSummary } from "@/components/ShareSafeSummary";
+import { VisualRiskHeatmap } from "@/components/VisualRiskHeatmap";
 import { apiRequest } from "@/lib/queryClient";
 import { industryModeLabels, type Contract, type Verdict } from "@shared/schema";
 
@@ -158,7 +162,7 @@ export default function ContractAnalysis() {
           )}
 
           <Tabs defaultValue="summary" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="summary" data-testid="tab-summary">
                 <FileText className="h-4 w-4 mr-2" />
                 Summary
@@ -176,6 +180,9 @@ export default function ContractAnalysis() {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="heatmap" data-testid="tab-heatmap">
+                Risk Map
+              </TabsTrigger>
               <TabsTrigger value="document" data-testid="tab-document">
                 <FileText className="h-4 w-4 mr-2" />
                 Document
@@ -191,7 +198,18 @@ export default function ContractAnalysis() {
             </TabsContent>
 
             <TabsContent value="risks">
-              <RiskFlags riskFlags={analysis.riskFlags || []} />
+              <RiskFlags 
+                riskFlags={analysis.riskFlags || []} 
+                contractType={contract.type || "general"}
+                industryMode={contract.industryMode || "general"}
+              />
+            </TabsContent>
+
+            <TabsContent value="heatmap">
+              <VisualRiskHeatmap 
+                contractText={contract.extractedText}
+                riskFlags={analysis.riskFlags || []}
+              />
             </TabsContent>
 
             <TabsContent value="document">
@@ -203,6 +221,14 @@ export default function ContractAnalysis() {
               />
             </TabsContent>
           </Tabs>
+
+          <WhatIfSimulator contractId={contractId} />
+
+          <div className="flex flex-wrap items-center gap-4">
+            <ShareSafeSummary contractId={contractId} />
+          </div>
+
+          <TrustSeal />
 
           <Disclaimer className="mt-8" />
         </div>
