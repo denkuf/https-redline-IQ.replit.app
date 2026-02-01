@@ -11,6 +11,11 @@ import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
+import Dashboard from "@/pages/Dashboard";
+import QuickScan from "@/pages/QuickScan";
+import NegotiationCoach from "@/pages/NegotiationCoach";
+import SignedContracts, { SignedContractDetail } from "@/pages/SignedContracts";
+import Emergency from "@/pages/Emergency";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +25,12 @@ function Router() {
       <Route path="/contract/:id" component={ContractAnalysis} />
       <Route path="/history" component={History} />
       <Route path="/settings" component={Settings} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/quick-scan" component={QuickScan} />
+      <Route path="/negotiation-coach" component={NegotiationCoach} />
+      <Route path="/signed-contracts" component={SignedContracts} />
+      <Route path="/signed-contracts/:id" component={SignedContractDetail} />
+      <Route path="/emergency" component={Emergency} />
       <Route component={NotFound} />
     </Switch>
   );

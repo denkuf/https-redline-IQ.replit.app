@@ -1,10 +1,19 @@
 # Redline IQ - Contract Analysis Application
 
 ## Overview
-Redline IQ is a contract analysis web application that acts as a "digital lawyer in your pocket." It helps ordinary people understand contracts before signing by providing AI-powered plain-English summaries, risk detection with exact clause references, key terms extraction, negotiation guidance, and export functionality.
+Redline IQ is a contract analysis web application that acts as a "digital lawyer in your pocket" and a "personal legal nervous system." It helps ordinary people understand contracts before signing by providing AI-powered plain-English summaries, risk detection with exact clause references, key terms extraction, negotiation guidance, contract monitoring, and emergency legal triage.
 
 ## Project Status
-**Current State**: V2 Complete - Full negotiation advocacy tool with industry-specific analysis
+**Current State**: V3 Complete - Living Legal Guardian Layer
+
+### V3 Features (NEW)
+- **Red Flag Shield (Quick Scan)**: Instant clause analysis - paste any text from contracts, emails, WhatsApp to detect red flags
+- **Legal Guardian Dashboard**: Central hub showing legal safety score, active contracts, upcoming obligations
+- **Signed Contracts Monitoring**: Track signed contracts with deadline and obligation management
+- **Negotiation Coach**: Get strategic responses in different tones when negotiating
+- **Emergency Mode**: Legal triage - describe a problem and get relevant contracts, clauses, and next steps
+- **Contract Obligations**: Track payments, renewals, termination windows with reminders
+- **Company Intelligence**: Anonymized counterparty data and risk patterns
 
 ### V2 Features
 - **Industry-Specific Analysis Modes**: 7 modes (General, Rent/Lease, Employment, Freelance, Insurance, SaaS/Subscription, Small Business) with tailored playbooks
@@ -37,21 +46,31 @@ client/src/
 │   ├── NegotiationSuggestion.tsx # Per-risk negotiation guidance
 │   ├── RiskPreferencesForm.tsx   # User risk preference settings
 │   ├── RiskFlags.tsx             # Risk flags with negotiation badges
-│   └── FileUpload.tsx            # Enhanced with industry mode + preferences
-├── pages/          # Route pages (Home, History, Settings, ContractAnalysis)
+│   ├── FileUpload.tsx            # Enhanced with industry mode + preferences
+│   └── AppSidebar.tsx            # V3 navigation with grouped menu items
+├── pages/          # Route pages
+│   ├── Home.tsx               # Contract upload page
+│   ├── Dashboard.tsx          # V3 Legal Guardian Dashboard
+│   ├── QuickScan.tsx          # V3 Red Flag Shield
+│   ├── NegotiationCoach.tsx   # V3 Negotiation responses
+│   ├── SignedContracts.tsx    # V3 Contract monitoring
+│   ├── Emergency.tsx          # V3 Emergency mode
+│   ├── History.tsx            # Contract history
+│   ├── ContractAnalysis.tsx   # Contract analysis view
+│   └── Settings.tsx           # User settings
 ├── hooks/          # Custom React hooks
 └── lib/            # Utilities and query client
 
 server/
-├── routes.ts       # API endpoints (with V2 routes)
-├── ai.ts           # OpenAI integration with industry playbooks
+├── routes.ts       # API endpoints (V2 + V3 routes)
+├── ai.ts           # OpenAI integration with industry playbooks + V3 AI functions
 ├── fileParser.ts   # PDF/DOCX/image parsing
 ├── export.ts       # PDF, text, and negotiation pack export
-├── storage.ts      # Database operations
+├── storage.ts      # Database operations (V2 + V3 tables)
 └── seed.ts         # Sample data seeding
 
 shared/
-└── schema.ts       # Database schema with V2 types (Verdict, NegotiationSuggestion, RiskPreferences)
+└── schema.ts       # Database schema with V2 + V3 types
 ```
 
 ## Key Features
@@ -96,6 +115,7 @@ shared/
 
 ## API Endpoints
 
+### V2 Contract Analysis
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/contracts | List all contracts |
@@ -112,9 +132,25 @@ shared/
 | DELETE | /api/contracts/:id | Delete contract |
 | DELETE | /api/contracts/purge-all | Delete all contracts |
 
+### V3 Legal Guardian Features
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/quick-scan | Red Flag Shield - analyze text for instant red flags |
+| GET | /api/signed-contracts | List all signed contracts |
+| GET | /api/signed-contracts/:id | Get signed contract with obligations |
+| POST | /api/signed-contracts | Mark a contract as signed |
+| PATCH | /api/signed-contracts/:id | Update signed contract status |
+| GET | /api/obligations/upcoming | Get upcoming obligations (next 30 days) |
+| PATCH | /api/obligations/:id | Update obligation status (mark complete) |
+| POST | /api/negotiation-coach | Get strategic negotiation responses |
+| POST | /api/emergency | Emergency mode - get help for legal issues |
+| GET | /api/legal-score | Get user's legal safety score |
+
 ## Database Schema
 
-### contracts table
+### V2 Tables
+
+#### contracts table
 - `id`: Serial primary key
 - `name`: Contract name/title
 - `type`: Contract type (lease, employment, freelance, etc.)
@@ -127,7 +163,7 @@ shared/
 - `version`: Contract version number
 - `createdAt`: Timestamp
 
-### Analysis Result Schema (JSONB)
+#### Analysis Result Schema (JSONB)
 - `summary`: Plain-English summary with parties, obligations, dates
 - `keyTerms`: Array of categorized terms
 - `riskFlags`: Array with severity, clauseQuote, negotiation suggestions
@@ -135,6 +171,67 @@ shared/
 - `clarifyingQuestions`: Questions for ambiguous contracts
 - `overallAssessment`: Final assessment text
 - `industryMode`: Mode used for analysis
+
+### V3 Tables
+
+#### signedContracts table
+- `id`: Serial primary key
+- `contractId`: Reference to contracts table
+- `signedDate`: When contract was signed
+- `counterpartyName`: Other party name
+- `status`: active | expired | terminated
+- `notes`: Optional notes
+- `createdAt`: Timestamp
+
+#### contractObligations table
+- `id`: Serial primary key
+- `signedContractId`: Reference to signedContracts
+- `title`: Obligation name
+- `description`: Details
+- `type`: payment | renewal | termination_window | other
+- `dueDate`: When it's due
+- `isRecurring`: Boolean
+- `recurringInterval`: monthly | quarterly | yearly
+- `status`: pending | completed | missed
+- `reminderSent`: Boolean
+- `createdAt`: Timestamp
+
+#### quickScans table
+- `id`: Serial primary key
+- `inputText`: Text that was scanned
+- `analysis`: JSONB with red flags found
+- `createdAt`: Timestamp
+
+#### negotiationSessions table
+- `id`: Serial primary key
+- `counterpartyMessage`: What they said
+- `response`: JSONB with strategy and replies
+- `createdAt`: Timestamp
+
+#### companyIntelligence table
+- `id`: Serial primary key
+- `companyName`: Normalized company name
+- `totalContracts`: Count of contracts
+- `averageRiskScore`: Aggregate risk
+- `commonClauses`: JSONB with pattern data
+- `lastUpdated`: Timestamp
+
+#### userLegalScore table
+- `id`: Serial primary key
+- `currentScore`: 0-100 legal safety score
+- `contractsAnalyzed`: Total contracts analyzed
+- `issuesResolved`: Issues fixed
+- `obligationsMet`: Obligations completed
+- `updatedAt`: Timestamp
+
+#### clausePatterns table
+- `id`: Serial primary key
+- `clauseType`: Category of clause
+- `pattern`: The clause text pattern
+- `frequency`: How often seen
+- `typicalRiskLevel`: Average risk
+- `industryMode`: Which industry
+- `createdAt`: Timestamp
 
 ## Design Tokens (index.css)
 - **Primary**: Blue (#199 89% 48%) - Professional legal/trustworthy theme

@@ -421,3 +421,209 @@ export async function extractTextFromImage(imageBuffer: Buffer): Promise<string>
 
   return response.choices[0]?.message?.content || "";
 }
+
+// ============================================
+// V3 - Living Legal Guardian Layer AI Functions
+// ============================================
+
+// Quick Scan (Red Flag Shield) - instant clause analysis
+export async function quickAnalyzeClause(text: string): Promise<{
+  riskLevel: "safe" | "caution" | "danger";
+  flags: { issue: string; explanation: string; severity: string }[];
+  summary: string;
+}> {
+  const prompt = `Analyze this text/clause for legal risks. Be direct and helpful.
+
+TEXT TO ANALYZE:
+${text}
+
+Respond in JSON with:
+{
+  "riskLevel": "safe" | "caution" | "danger",
+  "flags": [{ "issue": "Brief issue title", "explanation": "Plain English explanation", "severity": "Low|Medium|High" }],
+  "summary": "One sentence summary of what this text means for the person"
+}
+
+GUIDELINES:
+- "danger" = contains clauses that could seriously harm the reader (waivers of rights, unlimited liability, etc.)
+- "caution" = has concerning clauses that should be negotiated
+- "safe" = standard/fair terms
+- Keep explanations simple and actionable`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You are a legal analyst who explains contract language in plain English. Focus on protecting ordinary people from legal traps." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 1024,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(content);
+}
+
+// Extract obligations from a contract for monitoring
+export async function extractObligations(contractText: string, analysis: any): Promise<{
+  title: string;
+  description: string;
+  type: string;
+  dueDate: string | null;
+  reminderDays: number;
+  isRecurring: boolean;
+  recurringInterval: string | null;
+}[]> {
+  const prompt = `Extract all obligations, deadlines, and important dates from this contract.
+
+CONTRACT TEXT:
+${contractText.slice(0, 8000)}
+
+EXISTING ANALYSIS SUMMARY:
+${analysis?.summary?.whatItIs || "N/A"}
+Key Terms: ${JSON.stringify(analysis?.keyTerms?.slice(0, 5) || [])}
+
+Extract obligations in JSON format:
+{
+  "obligations": [
+    {
+      "title": "Brief title (e.g., 'Monthly Rent Payment')",
+      "description": "What needs to be done",
+      "type": "payment|deliverable|renewal|termination_window|deadline",
+      "dueDate": "YYYY-MM-DD or null if ongoing",
+      "reminderDays": 7,
+      "isRecurring": true/false,
+      "recurringInterval": "daily|weekly|monthly|yearly" or null
+    }
+  ]
+}
+
+Focus on:
+- Payment deadlines (rent, invoices, fees)
+- Renewal/cancellation windows
+- Deliverable deadlines
+- Notice periods
+- Termination windows`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You are a contract analyst extracting actionable obligations and deadlines." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 2048,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  const parsed = JSON.parse(content);
+  return parsed.obligations || [];
+}
+
+// Negotiation coach - generate draft replies
+export async function generateNegotiationReplies(
+  counterpartyMessage: string,
+  context?: { contractType?: string; riskFlags?: any[]; userGoals?: string }
+): Promise<{
+  strategy: string;
+  replies: { tone: string; message: string }[];
+}> {
+  const prompt = `The user is negotiating a contract. The other party just said:
+
+"${counterpartyMessage}"
+
+${context?.contractType ? `Contract type: ${context.contractType}` : ""}
+${context?.riskFlags ? `Key concerns: ${context.riskFlags.map(r => r.title).join(", ")}` : ""}
+${context?.userGoals ? `User's goals: ${context.userGoals}` : ""}
+
+Provide negotiation strategy and draft replies in 3 tones.
+
+Respond in JSON:
+{
+  "strategy": "Brief negotiation strategy advice (1-2 sentences)",
+  "replies": [
+    { "tone": "Firm", "message": "Direct but professional response..." },
+    { "tone": "Friendly", "message": "Warm and collaborative response..." },
+    { "tone": "Professional", "message": "Balanced, formal response..." }
+  ]
+}
+
+GUIDELINES:
+- Keep replies concise (2-4 sentences each)
+- Make the user sound competent and confident
+- Focus on achieving a fair outcome
+- Never be aggressive or threatening`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You are a negotiation coach helping ordinary people negotiate contracts confidently. Your tone is supportive and empowering." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 1024,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(content);
+}
+
+// Emergency mode - analyze user's legal situation
+export async function emergencyAnalysis(
+  issue: string,
+  signedContracts: any[]
+): Promise<{
+  relevantContracts: { id: number; name: string; relevance: string }[];
+  relevantClauses: { contractId: number; clause: string; implication: string }[];
+  immediateSteps: string[];
+  lawyerSummary: string;
+}> {
+  const contractSummaries = signedContracts.map(sc => ({
+    id: sc.id,
+    contractId: sc.contractId,
+    counterparty: sc.counterpartyName,
+    signedDate: sc.signedDate,
+  }));
+
+  const prompt = `The user has a legal problem and needs help.
+
+USER'S ISSUE:
+"${issue}"
+
+THEIR SIGNED CONTRACTS:
+${JSON.stringify(contractSummaries, null, 2)}
+
+Analyze and respond in JSON:
+{
+  "relevantContracts": [
+    { "id": 1, "name": "Contract name", "relevance": "Why this contract is relevant" }
+  ],
+  "relevantClauses": [
+    { "contractId": 1, "clause": "Quote the relevant clause", "implication": "What this means for them" }
+  ],
+  "immediateSteps": [
+    "First thing they should do",
+    "Second thing they should do"
+  ],
+  "lawyerSummary": "A brief summary they can share with a lawyer if needed"
+}
+
+GUIDELINES:
+- Be calm and reassuring
+- Focus on actionable steps
+- If the issue is serious, recommend consulting a lawyer
+- Never provide specific legal advice`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: "You are a legal triage assistant helping people understand their legal situation in plain English. You are supportive and focus on practical next steps." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 2048,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(content);
+}
