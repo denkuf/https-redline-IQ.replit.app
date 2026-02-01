@@ -37,37 +37,37 @@ export interface IStorage {
   deleteAllContracts(userId: string): Promise<void>;
   searchContracts(query: string, userId: string): Promise<Contract[]>;
   
-  // V3 - Clause patterns (Personal Legal Memory)
-  getClausePatterns(userId?: string): Promise<ClausePattern[]>;
-  getClausePatternsByType(clauseType: string, userId?: string): Promise<ClausePattern[]>;
+  // V3 - Clause patterns (Personal Legal Memory) - userId required for data isolation
+  getClausePatterns(userId: string): Promise<ClausePattern[]>;
+  getClausePatternsByType(clauseType: string, userId: string): Promise<ClausePattern[]>;
   createClausePattern(pattern: InsertClausePattern): Promise<ClausePattern>;
   
-  // V3 - Signed contracts (Contract Monitoring)
-  getSignedContracts(userId?: string): Promise<SignedContract[]>;
-  getSignedContract(id: number): Promise<SignedContract | undefined>;
+  // V3 - Signed contracts (Contract Monitoring) - userId required for data isolation
+  getSignedContracts(userId: string): Promise<SignedContract[]>;
+  getSignedContract(id: number, userId: string): Promise<SignedContract | undefined>;
   createSignedContract(signedContract: InsertSignedContract): Promise<SignedContract>;
-  updateSignedContract(id: number, updates: Partial<InsertSignedContract>): Promise<SignedContract | undefined>;
+  updateSignedContract(id: number, userId: string, updates: Partial<InsertSignedContract>): Promise<SignedContract | undefined>;
   
-  // V3 - Contract obligations
-  getObligations(signedContractId: number): Promise<ContractObligation[]>;
-  getUpcomingObligations(userId?: string, days?: number): Promise<ContractObligation[]>;
+  // V3 - Contract obligations - userId required for data isolation
+  getObligations(signedContractId: number, userId: string): Promise<ContractObligation[]>;
+  getUpcomingObligations(userId: string, days?: number): Promise<ContractObligation[]>;
   createObligation(obligation: InsertContractObligation): Promise<ContractObligation>;
-  updateObligation(id: number, updates: Partial<InsertContractObligation>): Promise<ContractObligation | undefined>;
+  updateObligation(id: number, userId: string, updates: Partial<InsertContractObligation>): Promise<ContractObligation | undefined>;
   
-  // V3 - Quick scans (Red Flag Shield)
+  // V3 - Quick scans (Red Flag Shield) - userId required for data isolation
   createQuickScan(scan: InsertQuickScan): Promise<QuickScan>;
-  getQuickScans(userId?: string): Promise<QuickScan[]>;
+  getQuickScans(userId: string): Promise<QuickScan[]>;
   
-  // V3 - Company intelligence
+  // V3 - Company intelligence (shared aggregated data, no user isolation needed)
   getCompanyIntelligence(companyName: string): Promise<CompanyIntelligence | undefined>;
   updateCompanyIntelligence(companyName: string, data: Partial<CompanyIntelligence>): Promise<CompanyIntelligence>;
   
-  // V3 - Negotiation sessions
+  // V3 - Negotiation sessions - userId required for data isolation
   createNegotiationSession(session: InsertNegotiationSession): Promise<NegotiationSession>;
-  getNegotiationSessions(contractId?: number): Promise<NegotiationSession[]>;
+  getNegotiationSessions(userId: string, contractId?: number): Promise<NegotiationSession[]>;
   
-  // V3 - User legal score
-  getUserLegalScore(userId?: string): Promise<UserLegalScore | undefined>;
+  // V3 - User legal score - userId required for data isolation
+  getUserLegalScore(userId: string): Promise<UserLegalScore | undefined>;
   updateUserLegalScore(userId: string, updates: Partial<UserLegalScore>): Promise<UserLegalScore>;
 }
 
@@ -128,26 +128,18 @@ class DbStorage implements IStorage {
   }
 
   // V3 - Clause patterns (Personal Legal Memory)
-  async getClausePatterns(userId?: string): Promise<ClausePattern[]> {
-    if (userId) {
-      return db.select().from(clausePatterns)
-        .where(eq(clausePatterns.userId, userId))
-        .orderBy(desc(clausePatterns.createdAt));
-    }
-    return db.select().from(clausePatterns).orderBy(desc(clausePatterns.createdAt));
+  async getClausePatterns(userId: string): Promise<ClausePattern[]> {
+    return db.select().from(clausePatterns)
+      .where(eq(clausePatterns.userId, userId))
+      .orderBy(desc(clausePatterns.createdAt));
   }
 
-  async getClausePatternsByType(clauseType: string, userId?: string): Promise<ClausePattern[]> {
-    if (userId) {
-      return db.select().from(clausePatterns)
-        .where(and(
-          eq(clausePatterns.clauseType, clauseType),
-          eq(clausePatterns.userId, userId)
-        ))
-        .orderBy(desc(clausePatterns.createdAt));
-    }
+  async getClausePatternsByType(clauseType: string, userId: string): Promise<ClausePattern[]> {
     return db.select().from(clausePatterns)
-      .where(eq(clausePatterns.clauseType, clauseType))
+      .where(and(
+        eq(clausePatterns.clauseType, clauseType),
+        eq(clausePatterns.userId, userId)
+      ))
       .orderBy(desc(clausePatterns.createdAt));
   }
 
@@ -157,17 +149,15 @@ class DbStorage implements IStorage {
   }
 
   // V3 - Signed contracts (Contract Monitoring)
-  async getSignedContracts(userId?: string): Promise<SignedContract[]> {
-    if (userId) {
-      return db.select().from(signedContracts)
-        .where(eq(signedContracts.userId, userId))
-        .orderBy(desc(signedContracts.signedDate));
-    }
-    return db.select().from(signedContracts).orderBy(desc(signedContracts.signedDate));
+  async getSignedContracts(userId: string): Promise<SignedContract[]> {
+    return db.select().from(signedContracts)
+      .where(eq(signedContracts.userId, userId))
+      .orderBy(desc(signedContracts.signedDate));
   }
 
-  async getSignedContract(id: number): Promise<SignedContract | undefined> {
-    const [signed] = await db.select().from(signedContracts).where(eq(signedContracts.id, id));
+  async getSignedContract(id: number, userId: string): Promise<SignedContract | undefined> {
+    const [signed] = await db.select().from(signedContracts)
+      .where(and(eq(signedContracts.id, id), eq(signedContracts.userId, userId)));
     return signed;
   }
 
@@ -176,26 +166,29 @@ class DbStorage implements IStorage {
     return created;
   }
 
-  async updateSignedContract(id: number, updates: Partial<InsertSignedContract>): Promise<SignedContract | undefined> {
+  async updateSignedContract(id: number, userId: string, updates: Partial<InsertSignedContract>): Promise<SignedContract | undefined> {
     const [updated] = await db.update(signedContracts)
       .set(updates)
-      .where(eq(signedContracts.id, id))
+      .where(and(eq(signedContracts.id, id), eq(signedContracts.userId, userId)))
       .returning();
     return updated;
   }
 
   // V3 - Contract obligations
-  async getObligations(signedContractId: number): Promise<ContractObligation[]> {
+  async getObligations(signedContractId: number, userId: string): Promise<ContractObligation[]> {
+    // First verify the signed contract belongs to this user
+    const sc = await this.getSignedContract(signedContractId, userId);
+    if (!sc) return [];
     return db.select().from(contractObligations)
       .where(eq(contractObligations.signedContractId, signedContractId))
       .orderBy(contractObligations.dueDate);
   }
 
-  async getUpcomingObligations(userId?: string, days: number = 30): Promise<ContractObligation[]> {
+  async getUpcomingObligations(userId: string, days: number = 30): Promise<ContractObligation[]> {
     const now = new Date();
     const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
     
-    // Get all pending obligations due within the time window
+    // Get all pending obligations due within the time window for this user
     const results = await db.select({
       obligation: contractObligations,
       signedContract: signedContracts,
@@ -206,7 +199,7 @@ class DbStorage implements IStorage {
         eq(contractObligations.status, "pending"),
         gte(contractObligations.dueDate, now),
         lte(contractObligations.dueDate, futureDate),
-        userId ? eq(signedContracts.userId, userId) : sql`true`
+        eq(signedContracts.userId, userId)
       ))
       .orderBy(contractObligations.dueDate);
     
@@ -218,7 +211,18 @@ class DbStorage implements IStorage {
     return created;
   }
 
-  async updateObligation(id: number, updates: Partial<InsertContractObligation>): Promise<ContractObligation | undefined> {
+  async updateObligation(id: number, userId: string, updates: Partial<InsertContractObligation>): Promise<ContractObligation | undefined> {
+    // Verify the obligation belongs to a signed contract owned by this user
+    const [obl] = await db.select({
+      obligation: contractObligations,
+      signedContract: signedContracts,
+    })
+      .from(contractObligations)
+      .innerJoin(signedContracts, eq(contractObligations.signedContractId, signedContracts.id))
+      .where(and(eq(contractObligations.id, id), eq(signedContracts.userId, userId)));
+    
+    if (!obl) return undefined;
+    
     const [updated] = await db.update(contractObligations)
       .set(updates)
       .where(eq(contractObligations.id, id))
@@ -232,13 +236,10 @@ class DbStorage implements IStorage {
     return created;
   }
 
-  async getQuickScans(userId?: string): Promise<QuickScan[]> {
-    if (userId) {
-      return db.select().from(quickScans)
-        .where(eq(quickScans.userId, userId))
-        .orderBy(desc(quickScans.createdAt));
-    }
-    return db.select().from(quickScans).orderBy(desc(quickScans.createdAt));
+  async getQuickScans(userId: string): Promise<QuickScan[]> {
+    return db.select().from(quickScans)
+      .where(eq(quickScans.userId, userId))
+      .orderBy(desc(quickScans.createdAt));
   }
 
   // V3 - Company intelligence
@@ -275,24 +276,24 @@ class DbStorage implements IStorage {
     return created;
   }
 
-  async getNegotiationSessions(contractId?: number): Promise<NegotiationSession[]> {
+  async getNegotiationSessions(userId: string, contractId?: number): Promise<NegotiationSession[]> {
     if (contractId) {
       return db.select().from(negotiationSessions)
-        .where(eq(negotiationSessions.contractId, contractId))
+        .where(and(
+          eq(negotiationSessions.contractId, contractId),
+          eq(negotiationSessions.userId, userId)
+        ))
         .orderBy(desc(negotiationSessions.createdAt));
     }
-    return db.select().from(negotiationSessions).orderBy(desc(negotiationSessions.createdAt));
+    return db.select().from(negotiationSessions)
+      .where(eq(negotiationSessions.userId, userId))
+      .orderBy(desc(negotiationSessions.createdAt));
   }
 
   // V3 - User legal score
-  async getUserLegalScore(userId?: string): Promise<UserLegalScore | undefined> {
-    if (userId) {
-      const [score] = await db.select().from(userLegalScore)
-        .where(eq(userLegalScore.userId, userId));
-      return score;
-    }
-    // Return first score for demo/single-user mode
-    const [score] = await db.select().from(userLegalScore);
+  async getUserLegalScore(userId: string): Promise<UserLegalScore | undefined> {
+    const [score] = await db.select().from(userLegalScore)
+      .where(eq(userLegalScore.userId, userId));
     return score;
   }
 

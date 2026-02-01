@@ -495,12 +495,12 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const userId = getUserId(req);
-      const signedContract = await storage.getSignedContract(id);
-      if (!signedContract || signedContract.userId !== userId) {
+      const signedContract = await storage.getSignedContract(id, userId);
+      if (!signedContract) {
         return res.status(404).json({ message: "Signed contract not found" });
       }
 
-      const obligations = await storage.getObligations(id);
+      const obligations = await storage.getObligations(id, userId);
       const contract = await storage.getContract(signedContract.contractId, userId);
 
       res.json({ ...signedContract, obligations, contract });
@@ -527,13 +527,14 @@ export async function registerRoutes(
   app.patch("/api/obligations/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = getUserId(req);
       const updates = req.body;
       
       if (updates.status === "completed") {
         updates.completedAt = new Date();
       }
 
-      const updated = await storage.updateObligation(id, updates);
+      const updated = await storage.updateObligation(id, userId, updates);
       if (!updated) {
         return res.status(404).json({ message: "Obligation not found" });
       }
