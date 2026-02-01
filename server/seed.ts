@@ -6,6 +6,7 @@ const sampleContracts = [
   {
     name: "Standard Apartment Lease Agreement",
     type: "lease",
+    industryMode: "rent_lease",
     extractedText: `RESIDENTIAL LEASE AGREEMENT
 
 This Lease Agreement ("Agreement") is entered into as of January 15, 2025, by and between:
@@ -91,43 +92,92 @@ Tenant: ____________________________ Date: ___________`,
       riskFlags: [
         {
           title: "Expensive Early Termination",
-          severity: "High",
+          severity: "High" as const,
           explanation: "If you need to leave before the lease ends, you must pay two months' rent PLUS lose your entire $5,000 security deposit. This could cost you $10,000 total.",
           clauseQuote: "Early termination by Tenant requires payment of a fee equal to two months' rent plus forfeiture of the security deposit.",
           clauseReference: "Section 8 - Termination",
-          confidence: 0.95
+          confidence: 0.95,
+          isStandard: false,
+          negotiation: {
+            whatItDoes: "This clause makes you pay two months' rent AND forfeit your entire security deposit if you need to leave early.",
+            whyItsRisky: "Life circumstances change - job relocation, family emergencies, or better opportunities. This clause could cost you $10,000+ to break the lease, which is unusually harsh.",
+            suggestedChangePlain: "Change to: Pay one month's rent as early termination fee. Security deposit returned minus damages.",
+            suggestedChangeFormal: "Early termination by Tenant requires payment of a fee equal to one (1) month's rent. Security deposit shall be returned within 30 days less any deductions for damages.",
+            negotiationScript: "I'm interested in signing, but the early termination clause is concerning. Would you consider reducing it to one month's rent as the fee, with the security deposit handled separately? This is more in line with standard NYC leases."
+          }
         },
         {
           title: "Automatic Renewal with Rent Increase",
-          severity: "Medium",
+          severity: "Medium" as const,
           explanation: "The lease automatically renews each year unless you give 60 days notice. Upon renewal, rent can increase up to 5% without negotiation. You might forget and be locked in for another year at higher rent.",
           clauseQuote: "This lease shall automatically renew for successive one-year terms unless either party provides written notice... rent may be increased by up to 5%",
           clauseReference: "Section 4 - Automatic Renewal",
-          confidence: 0.92
+          confidence: 0.92,
+          isStandard: true,
+          negotiation: {
+            whatItDoes: "Your lease auto-renews for another year unless you give 60 days notice, and rent can jump up to 5% each time.",
+            whyItsRisky: "60 days is a long notice period - easy to forget. 5% increases compound over time, potentially pricing you out of your home.",
+            suggestedChangePlain: "Change to: 30 days notice required. Cap rent increases at 3% per year.",
+            suggestedChangeFormal: "Lease shall renew with 30 days written notice required. Annual rent increases shall not exceed 3%.",
+            negotiationScript: "The 60-day notice period is quite long and easy to miss. Could we change that to 30 days? Also, would you consider capping the annual increase at 3% instead of 5%?"
+          }
         },
         {
           title: "Binding Arbitration Only",
-          severity: "Medium",
+          severity: "Medium" as const,
           explanation: "If you have a dispute with the landlord, you cannot go to court. You must use binding arbitration, which can be more expensive and may favor landlords who use it frequently.",
           clauseQuote: "Any disputes arising under this Agreement shall be resolved through binding arbitration",
           clauseReference: "Section 13 - Dispute Resolution",
-          confidence: 0.88
+          confidence: 0.88,
+          isStandard: false,
+          negotiation: {
+            whatItDoes: "Forces all disputes to go through private arbitration instead of the court system.",
+            whyItsRisky: "Arbitration can be expensive, may favor repeat players (landlords), and you give up your right to sue. Small claims court is often faster and cheaper for tenant disputes.",
+            suggestedChangePlain: "Add option for small claims court for disputes under $10,000.",
+            suggestedChangeFormal: "Disputes involving amounts less than $10,000 may be resolved in small claims court at either party's election.",
+            negotiationScript: "I'd like the option to use small claims court for smaller disputes - it's faster and cheaper for both of us. Can we add that as an alternative for disputes under $10,000?"
+          }
         },
         {
           title: "Broad Indemnification Clause",
-          severity: "Medium",
+          severity: "Medium" as const,
           explanation: "You agree to protect the landlord from all claims related to your use of the apartment, which could include things not directly your fault.",
           clauseQuote: "Tenant agrees to indemnify and hold harmless Landlord from any and all claims... arising from Tenant's use of the Premises",
           clauseReference: "Section 11 - Indemnification",
-          confidence: 0.85
+          confidence: 0.85,
+          isStandard: true,
+          negotiation: {
+            whatItDoes: "Makes you financially responsible for any legal claims arising from your use of the apartment, even if not your fault.",
+            whyItsRisky: "This is very broad - you could be held responsible for things like defective building conditions or third-party actions.",
+            suggestedChangePlain: "Limit to claims caused by your negligence or willful misconduct only.",
+            suggestedChangeFormal: "Tenant agrees to indemnify Landlord from claims arising directly from Tenant's negligence or willful misconduct.",
+            negotiationScript: "The indemnification clause is quite broad. Would you consider limiting it to claims directly caused by my negligence? That's more reasonable and still protects you from genuine liability."
+          }
         }
       ],
-      overallAssessment: "This lease has several concerning clauses, particularly the expensive early termination fees and binding arbitration requirement. Before signing, try to negotiate: (1) reduce the early termination fee, (2) change arbitration to small claims court option, and (3) cap the auto-renewal rent increase at 3%. The rent and security deposit are fairly standard for NYC."
+      verdict: {
+        riskScore: 58,
+        verdict: "High Risk" as const,
+        topRisks: [
+          { title: "Expensive Early Termination", clauseReference: "Section 8", severity: "High" as const },
+          { title: "Automatic Renewal with Rent Increase", clauseReference: "Section 4", severity: "Medium" as const },
+          { title: "Binding Arbitration Only", clauseReference: "Section 13", severity: "Medium" as const }
+        ],
+        negotiationPriorities: [
+          "Reduce early termination fee to one month's rent",
+          "Add small claims court option for disputes",
+          "Cap annual rent increases at 3%"
+        ],
+        reasoning: "This lease has several concerning clauses that favor the landlord. The early termination fee is unusually harsh at $10,000+. Negotiate the key terms before signing, or consider other options."
+      },
+      overallAssessment: "This lease has several concerning clauses, particularly the expensive early termination fees and binding arbitration requirement. Before signing, try to negotiate: (1) reduce the early termination fee, (2) change arbitration to small claims court option, and (3) cap the auto-renewal rent increase at 3%. The rent and security deposit are fairly standard for NYC.",
+      industryMode: "rent_lease" as const
     }
   },
   {
     name: "Freelance Web Development Contract",
     type: "freelance",
+    industryMode: "freelance",
     extractedText: `FREELANCE SERVICES AGREEMENT
 
 This Freelance Services Agreement ("Agreement") is made effective as of the date of last signature below.
@@ -230,22 +280,53 @@ Contractor: ____________________________ Date: ___________`,
       riskFlags: [
         {
           title: "Late Payment Risk",
-          severity: "Medium",
+          severity: "Medium" as const,
           explanation: "Net 30 payment terms mean you could complete work and wait over a month for payment. The 1.5% monthly interest is reasonable but enforcing it may be difficult.",
           clauseQuote: "Payment terms: Net 30 days from invoice date.",
           clauseReference: "Section 2 - Payment",
-          confidence: 0.85
+          confidence: 0.85,
+          isStandard: true,
+          negotiation: {
+            whatItDoes: "Gives the client 30 days to pay each invoice after you've completed work.",
+            whyItsRisky: "You could complete significant work and wait 30+ days for payment. If they're slow or dispute charges, it could stretch to 60-90 days.",
+            suggestedChangePlain: "Change to Net 15, or require milestone payments before starting next phase.",
+            suggestedChangeFormal: "Payment terms: Net 15 days from invoice date. Work on subsequent phases shall not commence until previous milestone payment is received.",
+            negotiationScript: "I'd prefer Net 15 payment terms to maintain cash flow. Alternatively, I can start the next phase only after receiving payment for the previous one. Would either of those work for you?"
+          }
         },
         {
           title: "Limited Revision Rounds",
-          severity: "Low",
+          severity: "Low" as const,
           explanation: "Be clear with the client upfront about what counts as a 'round' of revisions. 3 design and 2 development rounds is reasonable, and extra work is billable.",
           clauseQuote: "Additional revisions will be billed at $150/hour",
           clauseReference: "Section 4 - Revisions",
-          confidence: 0.9
+          confidence: 0.9,
+          isStandard: true,
+          negotiation: {
+            whatItDoes: "Limits how many times the client can request changes without extra fees.",
+            whyItsRisky: "If not clearly defined, clients may try to squeeze many changes into one 'round'. $150/hour for extras is good, but tracking can be challenging.",
+            suggestedChangePlain: "Define what constitutes a 'round' - e.g., all feedback submitted within 48 hours of a deliverable.",
+            suggestedChangeFormal: "A revision round is defined as all feedback consolidated and submitted within 48 hours of deliverable presentation.",
+            negotiationScript: "The revision limits look good. To avoid confusion later, can we add that a 'round' means all feedback submitted within 48 hours? That way we're both on the same page."
+          }
         }
       ],
-      overallAssessment: "This is a fairly balanced freelance contract with good protections for both parties. The IP clause protecting you until final payment is smart. Consider: (1) requesting 50% upfront instead of 30% for better cash flow, and (2) adding a 'kill fee' if the project is cancelled mid-way. Overall, this is reasonable to sign with minor tweaks."
+      verdict: {
+        riskScore: 28,
+        verdict: "Caution" as const,
+        topRisks: [
+          { title: "Late Payment Risk", clauseReference: "Section 2", severity: "Medium" as const },
+          { title: "Limited Revision Rounds", clauseReference: "Section 4", severity: "Low" as const }
+        ],
+        negotiationPriorities: [
+          "Change payment terms to Net 15",
+          "Request 50% upfront instead of 30%",
+          "Define what constitutes a revision 'round'"
+        ],
+        reasoning: "This is a fairly balanced freelance contract. The IP protection until final payment is good. Main concerns are payment timing and revision clarity. Low overall risk with minor improvements recommended."
+      },
+      overallAssessment: "This is a fairly balanced freelance contract with good protections for both parties. The IP clause protecting you until final payment is smart. Consider: (1) requesting 50% upfront instead of 30% for better cash flow, and (2) adding a 'kill fee' if the project is cancelled mid-way. Overall, this is reasonable to sign with minor tweaks.",
+      industryMode: "freelance" as const
     }
   }
 ];
@@ -253,7 +334,7 @@ Contractor: ____________________________ Date: ___________`,
 export async function seedDatabase() {
   try {
     // Check if we already have contracts
-    const existing = await db.select({ count: sql`count(*)::int` }).from(contracts);
+    const existing = await db.select({ count: sql<number>`count(*)::int` }).from(contracts);
     const count = existing[0]?.count || 0;
     
     if (count > 0) {
@@ -263,7 +344,7 @@ export async function seedDatabase() {
 
     // Insert sample contracts
     for (const contract of sampleContracts) {
-      await db.insert(contracts).values(contract);
+      await db.insert(contracts).values(contract as any);
     }
 
     console.log(`Seeded ${sampleContracts.length} sample contracts`);
