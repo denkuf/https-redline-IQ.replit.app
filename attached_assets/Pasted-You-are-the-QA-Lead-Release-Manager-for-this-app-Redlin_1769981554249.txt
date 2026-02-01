@@ -1,0 +1,322 @@
+You are the QA Lead + Release Manager for this app: RedlineIQ (Contract Translator).
+
+Your job:
+
+Audit the entire codebase and running app to ensure all core requirements from the original product idea are implemented.
+
+Identify missing features, broken flows, weak/unsafe AI behaviors, incomplete UI actions, and edge-case failures.
+
+Run the full test suite and also conduct manual end-to-end tests.
+
+Output a QA report and then fix issues one-by-one until all tests pass.
+
+Product Requirements (Must Match)
+
+RedlineIQ is a contract translator and advocate-grade analyzer. It must:
+
+Accept contract input via PDF upload, photo/image upload, and pasted text
+
+Extract readable text reliably from PDF/images
+
+Provide outputs in layers:
+
+Plain-English summary
+
+Key Terms table (payment, term, renewal, cancellation/termination, liability/indemnity, dispute resolution, governing law if present, confidentiality/IP if present)
+
+Risk flags with severity (Low/Medium/High), explanation, exact clause quote, clause reference, and confidence score
+
+Never invent laws or facts; must be grounded in the contract text
+
+Must support clarification questions when uncertain/missing key information
+
+Provide “My Contracts” history, search, view results, delete
+
+Export results (PDF and/or email-friendly text)
+
+Privacy controls: delete a contract permanently, purge data
+
+Clean UX: no dead buttons, no broken routes, safe empty states
+
+Non-Negotiable AI Safety Rules
+
+The AI must not claim legal advice or cite laws/statutes as fact.
+
+Every risk flag must include:
+
+Clause quote (short excerpt)
+
+A reference/anchor (section heading or approximate location)
+
+If the AI can’t locate support in text → it must say “Not found in document.”
+
+If confidence < 0.70 → must label as “uncertain/ambiguous” and suggest professional review.
+
+1) Setup Verification (Environment & Build)
+
+Perform these checks and report findings:
+
+Verify npm install completes with no errors
+
+Verify npm run dev (or start command) works
+
+Confirm Node version is correct (document it)
+
+Confirm all required env vars exist (list required vs missing):
+
+AI API key
+
+Database URL
+
+File storage credentials (if used)
+
+Auth secrets (if used)
+
+If missing, implement sensible defaults for local dev, and provide clear .env.example.
+
+2) Functional Test Checklist (End-to-End)
+
+Run these in order and record PASS/FAIL with screenshots/logs:
+
+Test A — Paste Text Contract
+
+Go to Upload/Input page
+
+Paste a sample contract (create a realistic multi-paragraph sample if none exists)
+
+Submit
+Expected:
+
+Contract saved
+
+Analyzer runs successfully
+
+Results page renders:
+
+Summary present
+
+Key terms table present (some fields may be “Not found”)
+
+Risk flags present with clause quotes + references
+
+No console errors
+
+Test B — PDF Upload
+
+Upload a PDF contract
+Expected:
+
+PDF stored
+
+Text extracted
+
+Analyzer runs
+
+Results include clause quotes that actually appear in extracted text
+
+Test C — Image Upload (OCR)
+
+Upload an image/photo of contract text
+Expected:
+
+OCR runs and returns text
+
+Analyzer runs
+
+Output grounded with clause quotes from OCR text
+
+Test D — Low Confidence / Clarification Flow
+
+Submit a very short or ambiguous contract
+Expected:
+
+App asks 1–3 clarification questions
+
+After user answers, final analysis updates correctly
+
+Test E — History & Retrieval
+
+Navigate to “My Contracts”
+
+Confirm list shows past contracts
+
+Open a past contract
+Expected:
+
+Viewer loads text
+
+Results load without rerunning analysis unless user requests re-analyze
+
+Test F — Export
+
+Export analysis to PDF
+
+Export/share to email-friendly text
+Expected:
+
+Download works
+
+Formatting is readable
+
+Includes disclaimer text
+
+Includes risk flags + quotes
+
+Test G — Delete & Purge
+
+Delete a single contract
+Expected:
+
+Fully removed from history
+
+Cannot be accessed by URL
+
+Purge all data (if implemented)
+Expected:
+
+All contracts removed
+
+User sees empty state
+
+3) UI/UX & Navigation QA
+
+Verify:
+
+No dead buttons or placeholder links
+
+All routes exist (no 404)
+
+All empty states are designed (no blank pages)
+
+Loading states exist during analysis
+
+Error states exist (failed extraction, failed AI call, failed DB)
+
+Mobile responsiveness baseline (no broken layout)
+
+4) AI Output Validation (Schema + Safety)
+
+Confirm the AI analysis output is validated using a strict schema (e.g., Zod).
+Checks:
+
+If AI output fails schema → automatic retry with stricter prompt
+
+If it still fails → app shows “analysis needs review” instead of crashing
+
+All risk flags include:
+
+severity
+
+explanation
+
+quote
+
+reference
+
+confidence
+If any field missing → mark as FAIL and fix.
+
+Also test these failure modes:
+
+AI rate limit / timeout
+
+AI returns non-JSON
+
+AI returns partial JSON
+Expected:
+
+App handles gracefully, provides retry, logs errors
+
+5) Security & Privacy QA
+
+Verify:
+
+Users cannot access other users’ contracts (try altering IDs)
+
+File URLs are protected (not public if sensitive)
+
+Inputs are sanitized (no script injection)
+
+Large file uploads handled (limits + clear errors)
+
+PII handling: allow user deletion and purge
+
+6) Performance & Reliability QA
+
+Test:
+
+Upload a large PDF (e.g., 20+ pages)
+Expected:
+
+Doesn’t crash
+
+Either processes successfully or provides “too large” message with guidance
+
+Uses pagination or chunking for analysis
+Test concurrency:
+
+Submit 3 contracts back-to-back
+Expected:
+
+No race conditions, each gets correct results
+
+7) Final QA Report Output (Required Format)
+
+Produce a QA report in this structure:
+
+A) Summary
+
+Build status (PASS/FAIL)
+
+Critical issues count
+
+High/Medium/Low issues count
+
+B) Requirement Coverage Matrix
+List each requirement and whether it is implemented (PASS/FAIL) with evidence.
+
+C) Bugs Found
+For each bug:
+
+Steps to reproduce
+
+Expected vs actual
+
+Severity (Critical/High/Medium/Low)
+
+Root cause in code
+
+Fix plan
+
+D) Fixes Applied
+
+Commit-like summary of changes
+
+Files changed
+
+E) Retest Results
+
+Rerun all failed tests after fixes
+
+Confirm final status: READY TO SHIP / NOT READY
+
+8) Do the Work
+
+Now execute the QA:
+
+Run tests
+
+Identify missing features
+
+Fix issues
+
+Re-test
+Do not stop until:
+
+All Critical issues are resolved
+
+All acceptance tests are passing
+
+Requirement matrix is 100% PASS or explicitly documented as “Deferred to V2” with a reason
+
+Return the final QA report.
