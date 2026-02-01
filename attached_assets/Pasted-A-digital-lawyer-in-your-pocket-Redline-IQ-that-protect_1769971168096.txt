@@ -1,0 +1,101 @@
+A digital lawyer-in-your-pocket (Redline IQ) that protects ordinary people from bad decisions.
+This becomes:
+“The Grammarly of Contracts – but with legal teeth.”
+Tagline:
+“Know what you’re signing.” 
+“Before you sign, run it through us.”
+________________________________________
+🧠 Core Promise
+This agent must behave like:
+•	A top-tier contract attorney
+•	A ruthless risk auditor
+•	A calm human explainer
+•	A personal advocate
+It must:
+1.	Translate legal language into human English
+2.	Identify real risks
+3.	Expose hidden traps
+4.	Say who this contract benefits
+5.	Tell the user what to change
+6.	Answer:
+“Should I sign this?”
+And it must do so with near-zero hallucination. You cannot make a mistake
+V1 Goal
+Deliver a high-accuracy, grounded contract explainer that users can trust.
+V1 Modules (Required)
+1.	Upload & Input
+o	Upload: PDF, DOC/DOCX, JPG, PNG
+o	Paste contract text
+o	“Scan/photo” upload (image → text extraction)
+2.	Contract Viewer
+o	Show extracted text clearly
+o	Highlight detected sections/clauses
+o	Allow user to select text and click “Explain this”
+3.	Results Page (Layered Output)
+Output must be in layers:
+A) Plain-English Summary
+o	What this contract is
+o	Who is involved
+o	Key obligations for user
+o	Key obligations for other party
+o	Dates/term (if found)
+B) Key Terms Table
+o	Payment/price
+o	Term length
+o	Cancellation/termination
+o	Renewal
+o	Liability/indemnity
+o	Dispute resolution (arbitration/court)
+o	Governing law (only if mentioned)
+o	Confidentiality/IP (if present)
+C) Risk Flags (Grounded)
+For each risk:
+o	Risk title
+o	Severity: Low / Medium / High
+o	Why it’s risky (plain English)
+o	Exact clause quote (short excerpt) + clause reference (e.g., “Section 8.2” or nearest heading)
+o	Confidence score (0–1)
+4.	Clarifying Questions (When Needed)
+If key info is missing or ambiguous, ask 1–3 short questions such as:
+o	“Is this for you personally or a business?”
+o	“What state/country are you in?” (optional for context, but do not apply law)
+o	“Is your main concern cost, cancellation, or liability?”
+5.	Export
+o	Export summary + risk flags to PDF
+o	Export to email-friendly text
+6.	History
+o	“My Contracts” list
+o	Search by name/type/date
+o	Delete contract permanently
+7.	Settings
+o	Privacy controls (delete/purge data)
+o	Notification preferences (optional)
+o	Disclaimer screen
+________________________________________
+V1 AI Rules (Critical)
+The AI must follow these rules strictly:
+1.	No law invention
+o	The AI must not claim “this is illegal” or cite statutes.
+o	It may say: “This clause may increase your risk because…”
+2.	Grounding required
+o	Every “risk flag” must reference the exact clause text.
+o	If no clause supports it, it cannot be said.
+3.	Uncertainty handling
+o	If confidence < 0.70, the AI must say:
+“I’m not fully certain—this is ambiguous; consider a professional review.”
+4.	Safe output
+o	Always show a disclaimer:
+“I’m not a lawyer. This is informational, not legal advice.”
+________________________________________
+V1 Acceptance Tests (Must Pass Before V2)
+Run and verify these inside the app:
+1.	Upload a lease → summary + risks (deposit, termination, fees etc)
+2.	Upload an employment offer → summary + risks (at-will, noncompete if present etc)
+3.	Upload a freelance contract → payment + scope + termination detected
+4.	At least one ambiguous contract → clarification questions triggered
+5.	Every risk flag includes clause quote + reference
+6.	Export PDF works
+7.	History search works
+8.	Delete/purge works
+9.	No broken buttons, no crashes, clean empty states
+
