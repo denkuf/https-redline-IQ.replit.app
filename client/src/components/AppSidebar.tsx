@@ -40,9 +40,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <Link href="/" className="flex items-center gap-2" data-testid="nav-home-logo">
-          <img src={logoImage} alt="Redline IQ" className="h-12 w-auto object-contain max-w-full" />
+      <SidebarHeader className="p-4 pb-6">
+        <Link href="/" className="flex items-center justify-center" data-testid="nav-home-logo">
+          <img src={logoImage} alt="Redline IQ" className="h-16 w-full object-contain" />
         </Link>
       </SidebarHeader>
       <SidebarContent>
