@@ -27,15 +27,15 @@ import {
 import { eq, desc, like, sql, and, gte, lte, or } from "drizzle-orm";
 
 export interface IStorage {
-  // Contract operations
-  getContract(id: number): Promise<Contract | undefined>;
-  getAllContracts(): Promise<Contract[]>;
+  // Contract operations (all require userId for data isolation)
+  getContract(id: number, userId: string): Promise<Contract | undefined>;
+  getAllContracts(userId: string): Promise<Contract[]>;
   createContract(contract: InsertContract): Promise<Contract>;
-  updateContract(id: number, updates: Partial<InsertContract>): Promise<Contract | undefined>;
+  updateContract(id: number, userId: string, updates: Partial<InsertContract>): Promise<Contract | undefined>;
   updateContractAnalysis(id: number, analysis: AnalysisResult, status?: string): Promise<Contract | undefined>;
-  deleteContract(id: number): Promise<void>;
-  deleteAllContracts(): Promise<void>;
-  searchContracts(query: string): Promise<Contract[]>;
+  deleteContract(id: number, userId: string): Promise<void>;
+  deleteAllContracts(userId: string): Promise<void>;
+  searchContracts(query: string, userId: string): Promise<Contract[]>;
   
   // V3 - Clause patterns (Personal Legal Memory)
   getClausePatterns(userId?: string): Promise<ClausePattern[]>;
@@ -72,13 +72,16 @@ export interface IStorage {
 }
 
 class DbStorage implements IStorage {
-  async getContract(id: number): Promise<Contract | undefined> {
-    const [contract] = await db.select().from(contracts).where(eq(contracts.id, id));
+  async getContract(id: number, userId: string): Promise<Contract | undefined> {
+    const [contract] = await db.select().from(contracts)
+      .where(and(eq(contracts.id, id), eq(contracts.userId, userId)));
     return contract;
   }
 
-  async getAllContracts(): Promise<Contract[]> {
-    return db.select().from(contracts).orderBy(desc(contracts.createdAt));
+  async getAllContracts(userId: string): Promise<Contract[]> {
+    return db.select().from(contracts)
+      .where(eq(contracts.userId, userId))
+      .orderBy(desc(contracts.createdAt));
   }
 
   async createContract(contract: InsertContract): Promise<Contract> {
@@ -86,11 +89,11 @@ class DbStorage implements IStorage {
     return created;
   }
 
-  async updateContract(id: number, updates: Partial<InsertContract>): Promise<Contract | undefined> {
+  async updateContract(id: number, userId: string, updates: Partial<InsertContract>): Promise<Contract | undefined> {
     const [updated] = await db
       .update(contracts)
       .set(updates)
-      .where(eq(contracts.id, id))
+      .where(and(eq(contracts.id, id), eq(contracts.userId, userId)))
       .returning();
     return updated;
   }
@@ -108,19 +111,19 @@ class DbStorage implements IStorage {
     return updated;
   }
 
-  async deleteContract(id: number): Promise<void> {
-    await db.delete(contracts).where(eq(contracts.id, id));
+  async deleteContract(id: number, userId: string): Promise<void> {
+    await db.delete(contracts).where(and(eq(contracts.id, id), eq(contracts.userId, userId)));
   }
 
-  async deleteAllContracts(): Promise<void> {
-    await db.delete(contracts);
+  async deleteAllContracts(userId: string): Promise<void> {
+    await db.delete(contracts).where(eq(contracts.userId, userId));
   }
 
-  async searchContracts(query: string): Promise<Contract[]> {
+  async searchContracts(query: string, userId: string): Promise<Contract[]> {
     return db
       .select()
       .from(contracts)
-      .where(like(contracts.name, `%${query}%`))
+      .where(and(like(contracts.name, `%${query}%`), eq(contracts.userId, userId)))
       .orderBy(desc(contracts.createdAt));
   }
 

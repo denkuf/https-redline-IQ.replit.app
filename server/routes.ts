@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { analyzeContract, explainClause, reanalyzeWithAnswers, compareContracts } from "./ai";
 import { parseFile, generateContractName } from "./fileParser";
 import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 const upload = multer({
@@ -12,15 +13,25 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
 });
 
+// Helper to get userId from authenticated request
+function getUserId(req: Request): string {
+  return (req as any).user?.claims?.sub;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
-  // Get all contracts
-  app.get("/api/contracts", async (req: Request, res: Response) => {
+  // Setup authentication FIRST (before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
+  
+  // Get all contracts (requires auth)
+  app.get("/api/contracts", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const contracts = await storage.getAllContracts();
+      const userId = getUserId(req);
+      const contracts = await storage.getAllContracts(userId);
       res.json(contracts);
     } catch (error) {
       console.error("Error fetching contracts:", error);
@@ -28,11 +39,12 @@ export async function registerRoutes(
     }
   });
 
-  // Get single contract
-  app.get("/api/contracts/:id", async (req: Request, res: Response) => {
+  // Get single contract (requires auth)
+  app.get("/api/contracts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const contract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -43,13 +55,14 @@ export async function registerRoutes(
     }
   });
 
-  // Upload file and create contract
-  app.post("/api/contracts/upload", upload.single("file"), async (req: Request, res: Response) => {
+  // Upload file and create contract (requires auth)
+  app.post("/api/contracts/upload", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
+      const userId = getUserId(req);
       const { buffer, mimetype, originalname } = req.file;
       const industryMode = (req.body.industryMode || "general") as IndustryMode;
       const riskPreferences = req.body.riskPreferences ? JSON.parse(req.body.riskPreferences) : undefined;
@@ -62,13 +75,14 @@ export async function registerRoutes(
 
       const name = generateContractName(extractedText, originalname);
 
-      // Create contract with pending status
+      // Create contract with pending status (userId for data isolation)
       const contract = await storage.createContract({
         name,
         extractedText,
         originalFileName: originalname,
         industryMode,
         status: "analyzing",
+        userId,
       });
 
       // Start analysis in background
@@ -76,12 +90,12 @@ export async function registerRoutes(
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {
-            await storage.updateContract(contract.id, { type: result.contractType });
+            await storage.updateContract(contract.id, userId, { type: result.contractType });
           }
         })
         .catch(async (error) => {
           console.error("Analysis failed:", error);
-          await storage.updateContract(contract.id, { status: "error" });
+          await storage.updateContract(contract.id, userId, { status: "error" });
         });
 
       res.status(201).json(contract);
@@ -91,9 +105,10 @@ export async function registerRoutes(
     }
   });
 
-  // Create contract from pasted text
-  app.post("/api/contracts", async (req: Request, res: Response) => {
+  // Create contract from pasted text (requires auth)
+  app.post("/api/contracts", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req);
       const { text, industryMode = "general", riskPreferences } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ message: "Contract text is required" });
@@ -106,6 +121,7 @@ export async function registerRoutes(
         extractedText: text,
         industryMode,
         status: "analyzing",
+        userId,
       });
 
       // Start analysis in background
@@ -113,12 +129,12 @@ export async function registerRoutes(
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {
-            await storage.updateContract(contract.id, { type: result.contractType });
+            await storage.updateContract(contract.id, userId, { type: result.contractType });
           }
         })
         .catch(async (error) => {
           console.error("Analysis failed:", error);
-          await storage.updateContract(contract.id, { status: "error" });
+          await storage.updateContract(contract.id, userId, { status: "error" });
         });
 
       res.status(201).json(contract);
@@ -128,8 +144,8 @@ export async function registerRoutes(
     }
   });
 
-  // Explain selected text
-  app.post("/api/contracts/:id/explain", async (req: Request, res: Response) => {
+  // Explain selected text (requires auth)
+  app.post("/api/contracts/:id/explain", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
       if (!text) {
@@ -144,13 +160,14 @@ export async function registerRoutes(
     }
   });
 
-  // Answer clarifying questions
-  app.post("/api/contracts/:id/answers", async (req: Request, res: Response) => {
+  // Answer clarifying questions (requires auth)
+  app.post("/api/contracts/:id/answers", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = getUserId(req);
       const { answers } = req.body;
 
-      const contract = await storage.getContract(id);
+      const contract = await storage.getContract(id, userId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -160,7 +177,7 @@ export async function registerRoutes(
       }
 
       // Update status to analyzing
-      await storage.updateContract(id, { status: "analyzing" });
+      await storage.updateContract(id, userId, { status: "analyzing" });
 
       // Re-analyze with answers
       const updatedAnalysis = await reanalyzeWithAnswers(
@@ -178,11 +195,12 @@ export async function registerRoutes(
     }
   });
 
-  // Export as PDF
-  app.get("/api/contracts/:id/export/pdf", async (req: Request, res: Response) => {
+  // Export as PDF (requires auth)
+  app.get("/api/contracts/:id/export/pdf", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const contract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
       
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
@@ -202,11 +220,12 @@ export async function registerRoutes(
     }
   });
 
-  // Export as text
-  app.get("/api/contracts/:id/export/text", async (req: Request, res: Response) => {
+  // Export as text (requires auth)
+  app.get("/api/contracts/:id/export/text", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const contract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
       
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
@@ -226,10 +245,11 @@ export async function registerRoutes(
     }
   });
 
-  // Purge all contracts (must be before :id route)
-  app.delete("/api/contracts/purge-all", async (req: Request, res: Response) => {
+  // Purge all contracts (requires auth - must be before :id route)
+  app.delete("/api/contracts/purge-all", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      await storage.deleteAllContracts();
+      const userId = getUserId(req);
+      await storage.deleteAllContracts(userId);
       res.status(204).send();
     } catch (error) {
       console.error("Purge error:", error);
@@ -237,11 +257,12 @@ export async function registerRoutes(
     }
   });
 
-  // Delete single contract
-  app.delete("/api/contracts/:id", async (req: Request, res: Response) => {
+  // Delete single contract (requires auth)
+  app.delete("/api/contracts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteContract(id);
+      const userId = getUserId(req);
+      await storage.deleteContract(id, userId);
       res.status(204).send();
     } catch (error) {
       console.error("Delete error:", error);
@@ -249,11 +270,12 @@ export async function registerRoutes(
     }
   });
 
-  // Compare two contract versions
-  app.post("/api/contracts/:id/compare", upload.single("file"), async (req: Request, res: Response) => {
+  // Compare two contract versions (requires auth)
+  app.post("/api/contracts/:id/compare", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const originalContract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const originalContract = await storage.getContract(id, userId);
       
       if (!originalContract) {
         return res.status(404).json({ message: "Original contract not found" });
@@ -277,7 +299,7 @@ export async function registerRoutes(
         originalContract.analysis!
       );
 
-      // Create the new version as a child contract
+      // Create the new version as a child contract (with userId)
       const newContract = await storage.createContract({
         name: `${originalContract.name} (v2)`,
         extractedText: newText,
@@ -286,6 +308,7 @@ export async function registerRoutes(
         parentContractId: originalContract.id,
         version: (originalContract.version || 1) + 1,
         status: "analyzing",
+        userId,
       });
 
       // Start analysis of new version
@@ -295,7 +318,7 @@ export async function registerRoutes(
         })
         .catch(async (error) => {
           console.error("Analysis failed:", error);
-          await storage.updateContract(newContract.id, { status: "error" });
+          await storage.updateContract(newContract.id, userId, { status: "error" });
         });
 
       res.json({
@@ -308,11 +331,12 @@ export async function registerRoutes(
     }
   });
 
-  // Export negotiation pack as PDF
-  app.get("/api/contracts/:id/export/negotiation-pack", async (req: Request, res: Response) => {
+  // Export negotiation pack as PDF (requires auth)
+  app.get("/api/contracts/:id/export/negotiation-pack", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const contract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
       
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
@@ -332,18 +356,19 @@ export async function registerRoutes(
     }
   });
 
-  // Reanalyze with different industry mode
-  app.post("/api/contracts/:id/reanalyze", async (req: Request, res: Response) => {
+  // Reanalyze with different industry mode (requires auth)
+  app.post("/api/contracts/:id/reanalyze", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = getUserId(req);
       const { industryMode, riskPreferences } = req.body;
       
-      const contract = await storage.getContract(id);
+      const contract = await storage.getContract(id, userId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
 
-      await storage.updateContract(id, { status: "analyzing", industryMode });
+      await storage.updateContract(id, userId, { status: "analyzing", industryMode });
 
       // Re-analyze with new mode
       analyzeContract(contract.extractedText, industryMode as IndustryMode, riskPreferences)
@@ -352,7 +377,7 @@ export async function registerRoutes(
         })
         .catch(async (error) => {
           console.error("Reanalysis failed:", error);
-          await storage.updateContract(id, { status: "error" });
+          await storage.updateContract(id, userId, { status: "error" });
         });
 
       res.json({ success: true });
@@ -366,10 +391,11 @@ export async function registerRoutes(
   // V3 - Living Legal Guardian Layer
   // ============================================
 
-  // Quick Scan (Red Flag Shield) - instant clause analysis
-  app.post("/api/quick-scan", async (req: Request, res: Response) => {
+  // Quick Scan (Red Flag Shield) - instant clause analysis (requires auth)
+  app.post("/api/quick-scan", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const { text, userId } = req.body;
+      const userId = getUserId(req);
+      const { text } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ message: "Text is required" });
       }
@@ -392,10 +418,10 @@ export async function registerRoutes(
     }
   });
 
-  // Get quick scan history
-  app.get("/api/quick-scans", async (req: Request, res: Response) => {
+  // Get quick scan history (requires auth)
+  app.get("/api/quick-scans", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       const scans = await storage.getQuickScans(userId);
       res.json(scans);
     } catch (error) {
@@ -404,13 +430,14 @@ export async function registerRoutes(
     }
   });
 
-  // Mark contract as signed
-  app.post("/api/contracts/:id/sign", async (req: Request, res: Response) => {
+  // Mark contract as signed (requires auth)
+  app.post("/api/contracts/:id/sign", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const contractId = parseInt(req.params.id);
-      const { userId, counterpartyName, counterpartyEmail, signedDate, notes } = req.body;
+      const userId = getUserId(req);
+      const { counterpartyName, counterpartyEmail, signedDate, notes } = req.body;
 
-      const contract = await storage.getContract(contractId);
+      const contract = await storage.getContract(contractId, userId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -451,10 +478,10 @@ export async function registerRoutes(
     }
   });
 
-  // Get all signed contracts
-  app.get("/api/signed-contracts", async (req: Request, res: Response) => {
+  // Get all signed contracts (requires auth)
+  app.get("/api/signed-contracts", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       const signedContracts = await storage.getSignedContracts(userId);
       res.json(signedContracts);
     } catch (error) {
@@ -463,17 +490,18 @@ export async function registerRoutes(
     }
   });
 
-  // Get single signed contract with obligations
-  app.get("/api/signed-contracts/:id", async (req: Request, res: Response) => {
+  // Get single signed contract with obligations (requires auth)
+  app.get("/api/signed-contracts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = getUserId(req);
       const signedContract = await storage.getSignedContract(id);
-      if (!signedContract) {
+      if (!signedContract || signedContract.userId !== userId) {
         return res.status(404).json({ message: "Signed contract not found" });
       }
 
       const obligations = await storage.getObligations(id);
-      const contract = await storage.getContract(signedContract.contractId);
+      const contract = await storage.getContract(signedContract.contractId, userId);
 
       res.json({ ...signedContract, obligations, contract });
     } catch (error) {
@@ -482,10 +510,10 @@ export async function registerRoutes(
     }
   });
 
-  // Get upcoming obligations (dashboard)
-  app.get("/api/obligations/upcoming", async (req: Request, res: Response) => {
+  // Get upcoming obligations (requires auth)
+  app.get("/api/obligations/upcoming", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       const obligations = await storage.getUpcomingObligations(userId, days);
       res.json(obligations);
@@ -495,8 +523,8 @@ export async function registerRoutes(
     }
   });
 
-  // Update obligation status
-  app.patch("/api/obligations/:id", async (req: Request, res: Response) => {
+  // Update obligation status (requires auth)
+  app.patch("/api/obligations/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -516,10 +544,11 @@ export async function registerRoutes(
     }
   });
 
-  // Negotiation coach - get draft replies
-  app.post("/api/negotiation-coach", async (req: Request, res: Response) => {
+  // Negotiation coach - get draft replies (requires auth)
+  app.post("/api/negotiation-coach", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const { message, contractId, userId, context } = req.body;
+      const userId = getUserId(req);
+      const { message, contractId, context } = req.body;
       if (!message) {
         return res.status(400).json({ message: "Message is required" });
       }
@@ -543,27 +572,27 @@ export async function registerRoutes(
     }
   });
 
-  // Get user legal score
-  app.get("/api/legal-score", async (req: Request, res: Response) => {
+  // Get user legal score (requires auth)
+  app.get("/api/legal-score", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       let score = await storage.getUserLegalScore(userId);
       
-      if (!score && userId) {
+      if (!score) {
         score = await storage.updateUserLegalScore(userId, { currentScore: 50 });
       }
 
-      res.json(score || { currentScore: 50, contractsAnalyzed: 0 });
+      res.json(score);
     } catch (error) {
       console.error("Error fetching legal score:", error);
       res.status(500).json({ message: "Failed to fetch legal score" });
     }
   });
 
-  // Get clause patterns (personal legal memory)
-  app.get("/api/clause-patterns", async (req: Request, res: Response) => {
+  // Get clause patterns (requires auth)
+  app.get("/api/clause-patterns", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       const clauseType = req.query.type as string | undefined;
 
       const patterns = clauseType
@@ -577,10 +606,11 @@ export async function registerRoutes(
     }
   });
 
-  // Record clause decision (accept/reject/negotiate)
-  app.post("/api/clause-patterns", async (req: Request, res: Response) => {
+  // Record clause decision (requires auth)
+  app.post("/api/clause-patterns", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const pattern = await storage.createClausePattern(req.body);
+      const userId = getUserId(req);
+      const pattern = await storage.createClausePattern({ ...req.body, userId });
       res.status(201).json(pattern);
     } catch (error) {
       console.error("Error creating clause pattern:", error);
@@ -588,7 +618,7 @@ export async function registerRoutes(
     }
   });
 
-  // Get company intelligence
+  // Get company intelligence (public - anonymized data)
   app.get("/api/company-intelligence/:name", async (req: Request, res: Response) => {
     try {
       const companyName = decodeURIComponent(req.params.name);
@@ -600,10 +630,11 @@ export async function registerRoutes(
     }
   });
 
-  // Emergency mode - find relevant contract and clauses
-  app.post("/api/emergency", async (req: Request, res: Response) => {
+  // Emergency mode (requires auth)
+  app.post("/api/emergency", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const { issue, userId } = req.body;
+      const userId = getUserId(req);
+      const { issue } = req.body;
       if (!issue) {
         return res.status(400).json({ message: "Issue description is required" });
       }
@@ -622,8 +653,8 @@ export async function registerRoutes(
     }
   });
 
-  // Explain Like I'm 12 - simplified explanation
-  app.post("/api/explain-simple", async (req: Request, res: Response) => {
+  // Explain Like I'm 12 (requires auth)
+  app.post("/api/explain-simple", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { clauseText, riskTitle } = req.body;
       if (!clauseText) {
@@ -640,8 +671,8 @@ export async function registerRoutes(
     }
   });
 
-  // Is This Normal? - check if clause is standard
-  app.post("/api/is-normal", async (req: Request, res: Response) => {
+  // Is This Normal? (requires auth)
+  app.post("/api/is-normal", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { clauseText, contractType, industryMode } = req.body;
       if (!clauseText) {
@@ -658,15 +689,16 @@ export async function registerRoutes(
     }
   });
 
-  // What If? Simulator - scenario questions
-  app.post("/api/what-if", async (req: Request, res: Response) => {
+  // What If? Simulator (requires auth)
+  app.post("/api/what-if", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = getUserId(req);
       const { scenario, contractId } = req.body;
       if (!scenario || !contractId) {
         return res.status(400).json({ message: "Scenario and contract ID are required" });
       }
 
-      const contract = await storage.getContract(contractId);
+      const contract = await storage.getContract(contractId, userId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -681,11 +713,12 @@ export async function registerRoutes(
     }
   });
 
-  // Share-Safe Summary
-  app.get("/api/contracts/:id/share-summary", async (req: Request, res: Response) => {
+  // Share-Safe Summary (requires auth)
+  app.get("/api/contracts/:id/share-summary", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const contract = await storage.getContract(id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
       
       if (!contract || !contract.analysis) {
         return res.status(404).json({ message: "Contract not found or not analyzed" });
@@ -701,10 +734,10 @@ export async function registerRoutes(
     }
   });
 
-  // Get upcoming contract expirations (Contract Expiry Radar)
-  app.get("/api/expiry-radar", async (req: Request, res: Response) => {
+  // Get upcoming contract expirations (requires auth)
+  app.get("/api/expiry-radar", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.query.userId as string | undefined;
+      const userId = getUserId(req);
       const days = parseInt(req.query.days as string) || 30;
       
       const signedContracts = await storage.getSignedContracts(userId);
