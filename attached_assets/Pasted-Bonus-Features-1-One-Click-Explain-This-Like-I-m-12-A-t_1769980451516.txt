@@ -1,0 +1,102 @@
+Bonus Features 
+1️⃣ One-Click “Explain This Like I’m 12”
+A toggle that re-explains any clause in:
+•	Super simple language
+•	With a real-world example
+“This means if you quit early, you might owe them money.”
+Why it hits:
+People don’t want legal English → they want understanding.
+________________________________________
+2️⃣ Visual Risk Heatmap
+Instead of only text, show:
+•	Contract sections color-coded:
+o	🟢 Safe
+o	🟡 Caution
+o	🔴 Dangerous
+Users can see risk instantly.
+Why it hits:
+Visual clarity = instant trust.
+________________________________________
+3️⃣ “What If?” Simulator
+User clicks:
+•	“What if I cancel early?”
+•	“What if they sue me?”
+•	“What if I miss a payment?”
+The agent answers using only the contract text.
+Why it hits:
+This turns fear into foresight.
+________________________________________
+4️⃣ Contract Expiry Radar
+A passive feature:
+•	Scans signed contracts
+•	Alerts:
+o	“This auto-renews in 14 days.”
+o	“This termination window closes soon.”
+Why it hits:
+People lose money because they forget — this saves them silently.
+________________________________________
+5️⃣ Legal Tone Switch
+When generating negotiation responses, user selects:
+•	Polite
+•	Firm
+•	Assertive
+•	Lawyer-like
+Why it hits:
+People fear sounding “wrong” in negotiations. This gives confidence.
+________________________________________
+6️⃣ “Is This Normal?” Button
+For any clause, user taps:
+“Is this normal?”
+The agent answers carefully:
+•	“This clause is commonly seen in X contracts.”
+•	“This clause is more aggressive than typical.”
+(No legal claims — just pattern awareness.)
+Why it hits:
+This is one of the most common legal anxieties.
+________________________________________
+7️⃣ Smart Clause Bookmarking
+Users can bookmark clauses like:
+•	“Termination”
+•	“Liability”
+•	“Non-compete”
+Over time, the agent learns:
+“You always check termination clauses first.”
+Why it hits:
+Personalization without creepiness.
+________________________________________
+8️⃣ Voice Mode (Explain It to Me)
+User taps a button and hears:
+•	A calm, human voice explanation of risks
+Why it hits:
+Accessibility, emotional comfort, and premium feel.
+________________________________________
+9️⃣ Share-Safe Summary
+One-click generate:
+•	A short, non-legal summary you can send to:
+o	Partner
+o	Co-founder
+o	Parent
+o	Spouse
+Why it hits:
+People discuss contracts socially.
+________________________________________
+🔟 Trust Seal (Psychological Weapon)
+After analysis, show:
+“Reviewed by Contract Advocate AI™
+Grounded in your document.
+No laws invented.”
+Why it hits:
+Trust messaging is half the product in legal tech.
+________________________________________
+🧠 Why These Matter
+None of these are “features for features’ sake.”
+They:
+•	Reduce fear
+•	Increase clarity
+•	Increase emotional trust
+•	Make the app feel protective, not technical
+This is how users go from:
+“This is helpful”
+to:
+“I won’t sign anything without this.”
+

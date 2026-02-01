@@ -11,8 +11,9 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, Shield, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
+import logoImage from "@/assets/logo.png";
 
 const analyzeItems = [
   { title: "Upload Contract", url: "/", icon: FileUp },
@@ -40,14 +41,8 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sidebar-foreground">Redline IQ</span>
-            <span className="text-xs text-sidebar-foreground/60">Know what you're signing</span>
-          </div>
+        <Link href="/" className="flex items-center gap-2" data-testid="nav-home-logo">
+          <img src={logoImage} alt="Redline IQ" className="h-10 w-auto object-contain" />
         </Link>
       </SidebarHeader>
       <SidebarContent>
