@@ -35,7 +35,7 @@ Redline IQ is a contract analysis web application that acts as a "digital lawyer
 
 ### V3 Features
 - **Red Flag Shield (Quick Scan)**: Instant clause analysis - paste any text from contracts, emails, WhatsApp to detect red flags
-- **Legal Guardian Dashboard**: Central hub showing legal safety score, active contracts, upcoming obligations
+- **Legal Guardian Dashboard**: Ultra-modern mobile-first design with circular score indicator, 2x2 quick action grid, and visual urgency badges
 - **Signed Contracts Monitoring**: Track signed contracts with deadline and obligation management
 - **Negotiation Coach**: Get strategic responses in different tones when negotiating
 - **Emergency Mode**: Legal triage - describe a problem and get relevant contracts, clauses, and next steps
