@@ -7,10 +7,9 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { MobileNav } from "@/components/MobileNav";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Home as HomeIcon } from "lucide-react";
-import { useLocation, Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
 import History from "@/pages/History";
@@ -49,33 +48,39 @@ function AuthenticatedLayout() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
-  const [location] = useLocation();
-  const isHomePage = location === "/";
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              {!isHomePage && (
-                <Link href="/">
-                  <Button variant="ghost" size="icon" data-testid="button-home">
-                    <HomeIcon className="h-5 w-5" />
-                  </Button>
-                </Link>
-              )}
+    <>
+      {/* Desktop: Sidebar layout */}
+      <div className="hidden md:block h-screen">
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center justify-between gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <ThemeToggle />
+              </header>
+              <main className="flex-1 overflow-auto p-6">
+                <Router />
+              </main>
             </div>
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-auto p-6">
-            <Router />
-          </main>
-        </div>
+          </div>
+        </SidebarProvider>
       </div>
-    </SidebarProvider>
+
+      {/* Mobile: Bottom tab navigation */}
+      <div className="md:hidden flex flex-col h-screen">
+        <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <h1 className="text-lg font-semibold text-primary">RedlineIQ</h1>
+          <ThemeToggle />
+        </header>
+        <main className="flex-1 overflow-auto p-4 pb-20">
+          <Router />
+        </main>
+        <MobileNav />
+      </div>
+    </>
   );
 }
 
