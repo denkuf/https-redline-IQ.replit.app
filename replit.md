@@ -104,6 +104,7 @@ shared/
 
 ### 1. Contract Upload
 - Supports PDF, DOCX, DOC, and image files
+- **Camera capture**: Take photos of contracts directly from mobile device
 - Text paste option for quick analysis
 - **Industry mode selection** (rent/lease, employment, freelance, etc.)
 - **Optional risk preferences** for personalized analysis
