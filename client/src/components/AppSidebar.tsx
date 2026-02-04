@@ -11,12 +11,12 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, Shield } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import logoImage from "@/assets/logo.png";
+import { Logo } from "./Logo";
 
 const analyzeItems = [
   { title: "Upload Contract", url: "/", icon: FileUp },
@@ -44,8 +44,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4 pb-6">
-        <Link href="/" className="flex items-center justify-center" data-testid="nav-home-logo">
-          <img src={logoImage} alt="Redline IQ" className="h-16 w-full object-contain" />
+        <Link href="/" className="flex items-center justify-center gap-2" data-testid="nav-home-logo">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Shield className="h-5 w-5 text-primary" />
+          </div>
+          <Logo size="lg" />
         </Link>
       </SidebarHeader>
       <SidebarContent>

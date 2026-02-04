@@ -3,7 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { FileUpload } from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, CheckCircle, AlertTriangle, FileText, MessageSquare, Scale } from "lucide-react";
+import { Shield, Sparkles, FileSearch, MessageSquare, Target } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 export default function Home() {
@@ -70,56 +71,72 @@ export default function Home() {
 
   const features = [
     {
-      icon: Scale,
-      title: "Should I Sign This?",
-      description: "Get a clear verdict with risk score (0-100) and top concerns to negotiate",
+      icon: Target,
+      title: "Instant Verdict",
+      description: "Clear risk score (0-100)",
     },
     {
-      icon: AlertTriangle,
-      title: "Industry-Specific Analysis",
-      description: "Tailored analysis for leases, employment, freelance, insurance, and more",
+      icon: FileSearch,
+      title: "Deep Analysis",
+      description: "Industry-specific insights",
     },
     {
       icon: MessageSquare,
-      title: "Negotiation Scripts",
-      description: "Know exactly what to say to negotiate fairer terms",
+      title: "Negotiation Help",
+      description: "Know what to say",
     },
     {
-      icon: CheckCircle,
-      title: "Grounded Analysis",
-      description: "Every finding backed by exact quotes from your contract",
+      icon: Sparkles,
+      title: "AI-Powered",
+      description: "Grounded in your doc",
     },
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
-          <Shield className="h-8 w-8 text-primary" />
-        </div>
-        <h1 className="text-3xl font-bold mb-3">Know What You're Signing</h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Upload any contract and get an instant verdict: should you sign it? Plus plain-English analysis, 
-          risk flags with negotiation scripts, and key terms. Your digital lawyer in your pocket.
-        </p>
-      </div>
-
-      <FileUpload onUpload={handleUpload} isLoading={uploadMutation.isPending} />
-
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-        {features.map((feature, i) => (
-          <div
-            key={i}
-            className="text-center p-6 rounded-lg bg-card border border-card-border"
-            data-testid={`feature-${i}`}
-          >
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
-              <feature.icon className="h-6 w-6 text-primary" />
+    <div className="min-h-full flex flex-col">
+      {/* Hero Section */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 md:py-12">
+        {/* Logo & Title - Mobile optimized */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center gap-3 mb-4">
+            <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shadow-sm">
+              <Shield className="h-7 w-7 md:h-8 md:w-8 text-primary" />
             </div>
-            <h3 className="font-semibold mb-2">{feature.title}</h3>
-            <p className="text-sm text-muted-foreground">{feature.description}</p>
           </div>
-        ))}
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">
+            Know What You're Signing
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto">
+            Your digital lawyer in your pocket. Get instant verdicts, plain-English analysis, and negotiation scripts.
+          </p>
+        </div>
+
+        {/* Feature Pills - Horizontal scrollable on mobile */}
+        <div className="w-full max-w-lg mb-8 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 justify-center flex-wrap px-2">
+            {features.map((feature, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2 px-3 py-2 rounded-full bg-secondary/50 border border-border/50 whitespace-nowrap"
+                data-testid={`feature-pill-${i}`}
+              >
+                <feature.icon className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="text-xs font-medium">{feature.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Upload Section - Ultra modern card */}
+        <div className="w-full max-w-lg px-2">
+          <FileUpload onUpload={handleUpload} isLoading={uploadMutation.isPending} />
+        </div>
+
+        {/* Trust indicator */}
+        <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+          <Shield className="h-3.5 w-3.5" />
+          <span>Powered by <Logo size="sm" /></span>
+        </div>
       </div>
     </div>
   );
