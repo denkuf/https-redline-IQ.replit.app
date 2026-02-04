@@ -15,6 +15,11 @@ Redline IQ is a contract analysis web application that acts as a "digital lawyer
 - **Auth Pages**: /login and /register with RedlineIQ branding only
 - **User Profile**: Sidebar displays user name, email with logout functionality
 - **Session Management**: Express sessions with PostgreSQL session store (connect-pg-simple)
+- **Account Deletion**: Full account deletion with atomic transaction - deletes all user data (contracts, obligations, sessions, quick scans, etc.) before removing account
+
+### Mobile Navigation
+- **Home Button**: Header displays home button icon when not on the home page (/) for quick navigation back
+- **Sidebar Toggle**: Mobile-friendly sidebar toggle for accessing all navigation options
 
 ### Bonus Features (NEW)
 - **Explain Like I'm 12**: One-click simplified explanations with real-world examples for any clause
