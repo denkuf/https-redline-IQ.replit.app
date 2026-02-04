@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { authStorage } from "./storage";
+import { storage } from "../../storage";
 
 // Custom auth middleware - checks session for user
 export function isAuthenticated(req: Request, res: Response, next: NextFunction): void {
@@ -122,6 +123,31 @@ export function registerAuthRoutes(app: Express): void {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Delete user account
+  app.delete("/api/auth/account", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.session as any).userId;
+      
+      // First delete all user data (contracts, analysis history, etc.)
+      await storage.deleteAllUserData(userId);
+      
+      // Then delete the user account
+      await authStorage.deleteUser(userId);
+      
+      // Destroy the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Error destroying session after account deletion:", err);
+        }
+        res.clearCookie("connect.sid");
+        res.json({ message: "Account deleted successfully" });
+      });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
     }
   });
 }

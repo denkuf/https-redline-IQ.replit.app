@@ -8,6 +8,7 @@ import {
   userLegalScore,
   quickScans,
   negotiationSessions,
+  userSettings,
   type Contract, 
   type InsertContract, 
   type AnalysisResult,
@@ -69,6 +70,9 @@ export interface IStorage {
   // V3 - User legal score - userId required for data isolation
   getUserLegalScore(userId: string): Promise<UserLegalScore | undefined>;
   updateUserLegalScore(userId: string, updates: Partial<UserLegalScore>): Promise<UserLegalScore>;
+  
+  // Delete all user data (for account deletion)
+  deleteAllUserData(userId: string): Promise<void>;
 }
 
 class DbStorage implements IStorage {
@@ -314,6 +318,46 @@ class DbStorage implements IStorage {
       } as any).returning();
       return created;
     }
+  }
+
+  async deleteAllUserData(userId: string): Promise<void> {
+    // Delete all user data in a single transaction for atomicity
+    // This ensures all data is deleted or none is, preventing orphaned records
+    await db.transaction(async (tx) => {
+      // Delete in order respecting foreign key constraints
+      // Tables with contractId FK must be deleted before contracts
+      // Tables with signedContractId FK must be deleted before signedContracts
+      
+      // 1. Delete negotiation sessions (references contracts.id)
+      await tx.delete(negotiationSessions).where(eq(negotiationSessions.userId, userId));
+      
+      // 2. Delete clause patterns (references contracts.id)
+      await tx.delete(clausePatterns).where(eq(clausePatterns.userId, userId));
+      
+      // 3. Delete contract obligations (depends on signed contracts)
+      const userSignedContracts = await tx.select({ id: signedContracts.id })
+        .from(signedContracts)
+        .where(eq(signedContracts.userId, userId));
+      
+      for (const sc of userSignedContracts) {
+        await tx.delete(contractObligations).where(eq(contractObligations.signedContractId, sc.id));
+      }
+      
+      // 4. Delete signed contracts (references contracts.id)
+      await tx.delete(signedContracts).where(eq(signedContracts.userId, userId));
+      
+      // 5. Delete contracts
+      await tx.delete(contracts).where(eq(contracts.userId, userId));
+      
+      // 6. Delete quick scans
+      await tx.delete(quickScans).where(eq(quickScans.userId, userId));
+      
+      // 7. Delete user legal score
+      await tx.delete(userLegalScore).where(eq(userLegalScore.userId, userId));
+      
+      // 8. Delete user settings
+      await tx.delete(userSettings).where(eq(userSettings.userId, userId));
+    });
   }
 }
 

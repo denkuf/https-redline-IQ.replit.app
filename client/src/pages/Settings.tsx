@@ -22,16 +22,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Settings as SettingsIcon, Shield, Trash2, Bell, AlertTriangle } from "lucide-react";
+import { Settings as SettingsIcon, Shield, Trash2, Bell, AlertTriangle, UserX } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Disclaimer } from "@/components/Disclaimer";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Settings() {
   const [notifications, setNotifications] = useState(true);
   const [autoDeleteDays, setAutoDeleteDays] = useState("30");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const purgeAllMutation = useMutation({
     mutationFn: async () => {
@@ -48,6 +50,26 @@ export default function Settings() {
       toast({
         title: "Delete failed",
         description: "Unable to delete data. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", "/api/auth/account");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Account deleted",
+        description: "Your account has been permanently removed.",
+      });
+      window.location.href = "/";
+    },
+    onError: () => {
+      toast({
+        title: "Delete failed",
+        description: "Unable to delete account. Please try again.",
         variant: "destructive",
       });
     },
@@ -163,6 +185,62 @@ export default function Settings() {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <UserX className="h-5 w-5" />
+              Delete Account
+            </CardTitle>
+            <CardDescription>
+              Permanently delete your account and all associated data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  This will permanently delete your account ({user?.email}), all your contracts, 
+                  analysis history, and any other data associated with your account. 
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" data-testid="button-delete-account">
+                    <UserX className="h-4 w-4 mr-2" />
+                    Delete My Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      Delete Your Account?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete your account and all associated data including 
+                      contracts, analysis history, and settings. You will be logged out immediately.
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteAccountMutation.mutate()}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      data-testid="button-confirm-delete-account"
+                    >
+                      Yes, Delete My Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>

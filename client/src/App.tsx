@@ -8,7 +8,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
+import { Loader2, Home as HomeIcon } from "lucide-react";
+import { useLocation, Link } from "wouter";
+import { Button } from "@/components/ui/button";
 import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
 import History from "@/pages/History";
@@ -47,6 +49,8 @@ function AuthenticatedLayout() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+  const [location] = useLocation();
+  const isHomePage = location === "/";
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -54,7 +58,16 @@ function AuthenticatedLayout() {
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-2">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              {!isHomePage && (
+                <Link href="/">
+                  <Button variant="ghost" size="icon" data-testid="button-home">
+                    <HomeIcon className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-6">
