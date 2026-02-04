@@ -18,8 +18,10 @@ Redline IQ is a contract analysis web application that acts as a "digital lawyer
 - **Account Deletion**: Full account deletion with atomic transaction - deletes all user data (contracts, obligations, sessions, quick scans, etc.) before removing account
 
 ### Mobile Navigation
-- **Home Button**: Header displays home button icon when not on the home page (/) for quick navigation back
-- **Sidebar Toggle**: Mobile-friendly sidebar toggle for accessing all navigation options
+- **Bottom Tab Bar**: Mobile-optimized navigation with 5 tabs: Upload, Dashboard, Quick Scan, History, More
+- **More Dropdown**: Additional options (Signed Contracts, Negotiation Coach, Emergency Mode, Settings)
+- **No Sidebar on Mobile**: Clean mobile experience without sidebar overlay
+- **Responsive Layout**: Sidebar on desktop (768px+), bottom tabs on mobile
 
 ### Bonus Features (NEW)
 - **Explain Like I'm 12**: One-click simplified explanations with real-world examples for any clause
