@@ -38,15 +38,6 @@ export default function QuickScan() {
     }
   };
 
-  const handlePaste = async () => {
-    try {
-      const clipboardText = await navigator.clipboard.readText();
-      setText(clipboardText);
-    } catch (error) {
-      console.error("Failed to read clipboard:", error);
-    }
-  };
-
   const copyToClipboard = async (content: string) => {
     await navigator.clipboard.writeText(content);
     setCopied(true);
@@ -108,28 +99,24 @@ export default function QuickScan() {
             className="min-h-[150px]"
             data-testid="input-quick-scan"
           />
-          <div className="flex gap-3">
-            <Button
-              onClick={handleScan}
-              disabled={!text.trim() || scanMutation.isPending}
-              data-testid="button-scan"
-            >
-              {scanMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Shield className="mr-2 h-4 w-4" />
-                  Scan for Red Flags
-                </>
-              )}
-            </Button>
-            <Button variant="outline" onClick={handlePaste} data-testid="button-paste">
-              Paste from Clipboard
-            </Button>
-          </div>
+          <Button
+            onClick={handleScan}
+            disabled={!text.trim() || scanMutation.isPending}
+            className="w-full"
+            data-testid="button-scan"
+          >
+            {scanMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Shield className="mr-2 h-4 w-4" />
+                Scan for Red Flags
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
 
