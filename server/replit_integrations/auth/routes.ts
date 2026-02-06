@@ -2,16 +2,24 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { authStorage } from "./storage";
 import { storage } from "../../storage";
 
-// Custom auth middleware - checks session for user
 export function isAuthenticated(req: Request, res: Response, next: NextFunction): void {
   if (req.session && (req.session as any).userId) {
-    next();
+    authStorage.getUser((req.session as any).userId).then(user => {
+      if (!user) {
+        res.status(401).json({ message: "Unauthorized" });
+      } else if (!user.emailVerified) {
+        res.status(403).json({ message: "Email not verified" });
+      } else {
+        next();
+      }
+    }).catch(() => {
+      res.status(500).json({ message: "Authentication error" });
+    });
   } else {
     res.status(401).json({ message: "Unauthorized" });
   }
 }
 
-// Get session helper for routes
 export function getSession(req: Request): { userId: string } | null {
   if (req.session && (req.session as any).userId) {
     return { userId: (req.session as any).userId };
@@ -19,9 +27,7 @@ export function getSession(req: Request): { userId: string } | null {
   return null;
 }
 
-// Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
-  // Register new user
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { email, firstName, lastName, password } = req.body;
@@ -34,23 +40,24 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
-      // Check if user already exists
       const existingUser = await authStorage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
-      // Create user
       const user = await authStorage.createUser({ email, firstName, lastName, password });
       
-      // Set session
       (req.session as any).userId = user.id;
+      
+      console.log(`[Email Verification] Code for ${user.email}: ${user.verificationCode}`);
       
       res.status(201).json({ 
         id: user.id, 
         email: user.email, 
         firstName: user.firstName, 
-        lastName: user.lastName 
+        lastName: user.lastName,
+        emailVerified: false,
+        verificationCode: user.verificationCode,
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -58,7 +65,60 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  // Login user
+  app.post("/api/auth/verify-email", async (req: Request, res: Response) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Please register or log in first" });
+      }
+
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ message: "Verification code is required" });
+      }
+
+      const success = await authStorage.verifyEmailCode(userId, code);
+      if (!success) {
+        return res.status(400).json({ message: "Invalid or expired verification code" });
+      }
+
+      res.json({ message: "Email verified successfully" });
+    } catch (error) {
+      console.error("Verification error:", error);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
+  app.post("/api/auth/resend-code", async (req: Request, res: Response) => {
+    try {
+      const userId = (req.session as any)?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Please register or log in first" });
+      }
+
+      const user = await authStorage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email is already verified" });
+      }
+
+      const code = await authStorage.resendVerificationCode(userId);
+      
+      console.log(`[Email Verification] New code for ${user.email}: ${code}`);
+      
+      res.json({ 
+        message: "Verification code sent",
+        verificationCode: code,
+      });
+    } catch (error) {
+      console.error("Resend code error:", error);
+      res.status(500).json({ message: "Failed to resend code" });
+    }
+  });
+
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
@@ -67,26 +127,38 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ message: "Email and password are required" });
       }
 
-      // Find user
       const user = await authStorage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Verify password
       const isValid = await authStorage.verifyPassword(user, password);
       if (!isValid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Set session
       (req.session as any).userId = user.id;
       
+      if (!user.emailVerified) {
+        const code = await authStorage.resendVerificationCode(user.id);
+        console.log(`[Email Verification] Login code for ${user.email}: ${code}`);
+        
+        return res.json({ 
+          id: user.id, 
+          email: user.email, 
+          firstName: user.firstName, 
+          lastName: user.lastName,
+          emailVerified: false,
+          verificationCode: code,
+        });
+      }
+
       res.json({ 
         id: user.id, 
         email: user.email, 
         firstName: user.firstName, 
-        lastName: user.lastName 
+        lastName: user.lastName,
+        emailVerified: true,
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -94,7 +166,6 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  // Logout user
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     req.session.destroy((err) => {
       if (err) {
@@ -105,7 +176,6 @@ export function registerAuthRoutes(app: Express): void {
     });
   });
 
-  // Get current authenticated user
   app.get("/api/auth/user", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = (req.session as any).userId;
@@ -119,6 +189,7 @@ export function registerAuthRoutes(app: Express): void {
         firstName: user.firstName,
         lastName: user.lastName,
         profileImageUrl: user.profileImageUrl,
+        emailVerified: user.emailVerified,
       });
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -126,18 +197,13 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  // Delete user account
   app.delete("/api/auth/account", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = (req.session as any).userId;
       
-      // First delete all user data (contracts, analysis history, etc.)
       await storage.deleteAllUserData(userId);
-      
-      // Then delete the user account
       await authStorage.deleteUser(userId);
       
-      // Destroy the session
       req.session.destroy((err) => {
         if (err) {
           console.error("Error destroying session after account deletion:", err);

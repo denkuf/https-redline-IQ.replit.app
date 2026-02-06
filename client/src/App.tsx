@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
+import { Logo } from "@/components/Logo";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import Home from "@/pages/Home";
@@ -22,6 +23,7 @@ import Emergency from "@/pages/Emergency";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import VerifyEmail from "@/pages/VerifyEmail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -72,7 +74,7 @@ function AuthenticatedLayout() {
       {/* Mobile: Bottom tab navigation */}
       <div className="md:hidden flex flex-col h-screen">
         <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <h1 className="text-lg font-semibold text-primary">RedlineIQ</h1>
+          <Logo size="md" />
           <ThemeToggle />
         </header>
         <main className="flex-1 overflow-auto p-4 pb-20">
@@ -107,7 +109,7 @@ function PublicRouter() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -115,6 +117,10 @@ function AppContent() {
 
   if (!isAuthenticated) {
     return <PublicRouter />;
+  }
+
+  if (user && !user.emailVerified) {
+    return <VerifyEmail email={user.email || ""} />;
   }
 
   return <AuthenticatedLayout />;

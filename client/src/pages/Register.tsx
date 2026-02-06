@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import redlineIqLogo from "@/assets/logo.png";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Logo } from "@/components/Logo";
+import { Shield } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Register() {
@@ -49,6 +50,7 @@ export default function Register() {
         email, 
         password 
       });
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       window.location.href = "/";
     } catch (error: any) {
       toast({
@@ -66,10 +68,12 @@ export default function Register() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={redlineIqLogo} alt="RedlineIQ" className="h-16" data-testid="img-register-logo" />
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center" data-testid="img-register-logo">
+              <Shield className="h-8 w-8 text-primary" />
+            </div>
           </div>
           <CardTitle className="text-2xl">Create Your Account</CardTitle>
-          <CardDescription>Join RedlineIQ and start analyzing contracts</CardDescription>
+          <CardDescription>Join <Logo size="sm" /> and start analyzing contracts</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
