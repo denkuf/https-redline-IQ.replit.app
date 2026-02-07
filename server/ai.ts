@@ -6,6 +6,9 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+const FAST_MODEL = "gpt-4.1-mini";
+const FULL_MODEL = "gpt-4.1";
+
 // Industry-specific playbooks with mode-specific red flags
 const INDUSTRY_PLAYBOOKS: Record<IndustryMode, string> = {
   general: `Focus on universal contract risks: unclear terms, hidden fees, unfair termination, one-sided liability.`,
@@ -192,13 +195,13 @@ export async function analyzeContract(
   const prompt = buildAnalysisPrompt(contractText.slice(0, 50000), industryMode, riskPreferences);
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FULL_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 8192,
+    max_completion_tokens: 4096,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -285,7 +288,7 @@ export async function explainClause(selectedText: string): Promise<string> {
   const prompt = EXPLAIN_PROMPT.replace("{selectedText}", selectedText.slice(0, 2000));
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are a helpful contract analyst explaining legal terms in plain English. Be concise and practical." },
       { role: "user", content: prompt },
@@ -322,13 +325,13 @@ ${JSON.stringify(previousAnalysis, null, 2)}
 Provide an updated analysis incorporating these answers. Return JSON with the same structure as before, but with clarifyingQuestions removed or updated based on answers received.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FULL_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 8192,
+    max_completion_tokens: 4096,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -380,13 +383,13 @@ Return a JSON object with:
 }`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FULL_MODEL,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+    max_completion_tokens: 2048,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -398,7 +401,7 @@ export async function extractTextFromImage(imageBuffer: Buffer): Promise<string>
   const mimeType = "image/png";
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FULL_MODEL,
     messages: [
       {
         role: "user",
@@ -451,7 +454,7 @@ GUIDELINES:
 - Keep explanations simple and actionable`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are a legal analyst who explains contract language in plain English. Focus on protecting ordinary people from legal traps." },
       { role: "user", content: prompt },
@@ -506,7 +509,7 @@ Focus on:
 - Termination windows`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are a contract analyst extracting actionable obligations and deadlines." },
       { role: "user", content: prompt },
@@ -555,7 +558,7 @@ GUIDELINES:
 - Never be aggressive or threatening`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are a negotiation coach helping ordinary people negotiate contracts confidently. Your tone is supportive and empowering." },
       { role: "user", content: prompt },
@@ -615,7 +618,7 @@ GUIDELINES:
 - Never provide specific legal advice`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are a legal triage assistant helping people understand their legal situation in plain English. You are supportive and focus on practical next steps." },
       { role: "user", content: prompt },
@@ -656,7 +659,7 @@ GUIDELINES:
 - Keep it SHORT and CLEAR`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You explain complex legal concepts in the simplest possible way. Think: how would you explain this to your little sibling?" },
       { role: "user", content: prompt },
@@ -706,7 +709,7 @@ GUIDELINES:
 - "Red Flag" = rarely seen and usually disadvantageous`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You are an expert on contract patterns and industry standards. You help people understand if clauses are typical or unusual." },
       { role: "user", content: prompt },
@@ -759,7 +762,7 @@ GUIDELINES:
 - Never invent clauses`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You help people understand their contract by answering 'what if' questions. You only reference actual contract text." },
       { role: "user", content: prompt },
@@ -805,7 +808,7 @@ GUIDELINES:
 - Focus on what matters most`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
+    model: FAST_MODEL,
     messages: [
       { role: "system", content: "You write casual, friendly summaries that anyone can understand. Think: how would you explain this contract to your mom?" },
       { role: "user", content: prompt },

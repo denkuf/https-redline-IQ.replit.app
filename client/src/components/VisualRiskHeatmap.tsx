@@ -58,16 +58,16 @@ export function VisualRiskHeatmap({ contractText, riskFlags }: VisualRiskHeatmap
               }`}
               data-testid={`heatmap-section-${i}`}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-sm">{section.title}</span>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-medium text-sm truncate min-w-0">{section.title}</span>
                 {section.matchingRisks.length > 0 && (
-                  <Badge variant={section.riskLevel === "danger" ? "destructive" : "secondary"} className="text-xs">
+                  <Badge variant={section.riskLevel === "danger" ? "destructive" : "secondary"} className="text-xs shrink-0">
                     {section.matchingRisks.length} {section.matchingRisks.length === 1 ? "Risk" : "Risks"}
                   </Badge>
                 )}
               </div>
               {section.matchingRisks.length > 0 && (
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground break-words">
                   {section.matchingRisks.map(r => r.title).join(", ")}
                 </div>
               )}

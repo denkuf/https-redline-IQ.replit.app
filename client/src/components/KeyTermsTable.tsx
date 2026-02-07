@@ -51,34 +51,57 @@ export function KeyTermsTable({ keyTerms }: KeyTermsTableProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Category</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead className="w-[250px]">Notes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {keyTerms.map((term, i) => (
-              <TableRow key={i} data-testid={`row-key-term-${i}`}>
-                <TableCell className="font-medium">
-                  <span className="inline-flex items-center gap-2">
-                    {(() => {
-                      const Icon = categoryIcons[term.category] || FileText;
-                      return <Icon className="h-4 w-4 text-muted-foreground" />;
-                    })()}
-                    {term.category}
-                  </span>
-                </TableCell>
-                <TableCell>{term.value}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {term.notes || "-"}
-                </TableCell>
+        <div className="hidden md:block overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[200px]">Category</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead className="w-[250px]">Notes</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {keyTerms.map((term, i) => (
+                <TableRow key={i} data-testid={`row-key-term-${i}`}>
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-2">
+                      {(() => {
+                        const Icon = categoryIcons[term.category] || FileText;
+                        return <Icon className="h-4 w-4 text-muted-foreground" />;
+                      })()}
+                      {term.category}
+                    </span>
+                  </TableCell>
+                  <TableCell>{term.value}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {term.notes || "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="md:hidden space-y-3">
+          {keyTerms.map((term, i) => {
+            const Icon = categoryIcons[term.category] || FileText;
+            return (
+              <div
+                key={i}
+                className="p-3 rounded-md bg-muted/30 border"
+                data-testid={`row-key-term-mobile-${i}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">{term.category}</span>
+                </div>
+                <p className="text-sm" style={{ overflowWrap: "break-word" }}>{term.value}</p>
+                {term.notes && (
+                  <p className="text-xs text-muted-foreground mt-1" style={{ overflowWrap: "break-word" }}>{term.notes}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

@@ -25,7 +25,7 @@ export function NegotiationSuggestion({ suggestion, riskTitle }: NegotiationSugg
   };
 
   return (
-    <div className="space-y-4 mt-4 pl-4 border-l-2 border-primary/30">
+    <div className="space-y-4 mt-4 pl-3 md:pl-4 border-l-2 border-primary/30 overflow-hidden">
       <div>
         <h5 className="text-sm font-medium text-muted-foreground mb-1">What this clause does:</h5>
         <p className="text-sm">{suggestion.whatItDoes}</p>

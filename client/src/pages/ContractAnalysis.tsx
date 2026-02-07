@@ -92,20 +92,20 @@ export default function ContractAnalysis() {
   const hasQuestions = analysis?.clarifyingQuestions?.some((q) => !q.answer);
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
+    <div className="max-w-5xl mx-auto w-full" style={{ overflowWrap: "break-word" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Link href="/history">
             <Button variant="ghost" size="icon" data-testid="button-back">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-contract-name">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg md:text-2xl font-bold truncate" data-testid="text-contract-name">
               {contract.name}
             </h1>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-muted-foreground text-sm">
                 {contract.type !== "unknown" ? contract.type : "Contract Analysis"}
               </span>
               {contract.industryMode && contract.industryMode !== "general" && (
@@ -117,16 +117,18 @@ export default function ContractAnalysis() {
           </div>
         </div>
         {!isAnalyzing && analysis && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <ExportButton contract={contract} />
             {analysis.riskFlags?.some(r => r.negotiation) && (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => window.open(`/api/contracts/${contractId}/export/negotiation-pack`, "_blank")}
                 data-testid="button-export-negotiation-pack"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Negotiation Pack
+                <span className="hidden sm:inline">Negotiation Pack</span>
+                <span className="sm:hidden">Pack</span>
               </Button>
             )}
           </div>
@@ -161,31 +163,31 @@ export default function ContractAnalysis() {
             />
           )}
 
-          <Tabs defaultValue="summary" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="summary" data-testid="tab-summary">
-                <FileText className="h-4 w-4 mr-2" />
+          <Tabs defaultValue="summary" className="space-y-4 md:space-y-6">
+            <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsTrigger value="summary" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-summary">
+                <FileText className="h-4 w-4 hidden sm:block sm:mr-1" />
                 Summary
               </TabsTrigger>
-              <TabsTrigger value="terms" data-testid="tab-terms">
-                <ClipboardList className="h-4 w-4 mr-2" />
-                Key Terms
+              <TabsTrigger value="terms" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-terms">
+                <ClipboardList className="h-4 w-4 hidden sm:block sm:mr-1" />
+                Terms
               </TabsTrigger>
-              <TabsTrigger value="risks" data-testid="tab-risks">
-                <AlertTriangle className="h-4 w-4 mr-2" />
+              <TabsTrigger value="risks" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-risks">
+                <AlertTriangle className="h-4 w-4 hidden sm:block sm:mr-1" />
                 Risks
                 {analysis.riskFlags?.length > 0 && (
-                  <span className="ml-2 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  <span className="ml-1 bg-destructive text-destructive-foreground text-xs px-1 py-0.5 rounded-full leading-none">
                     {analysis.riskFlags.length}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="heatmap" data-testid="tab-heatmap">
-                Risk Map
+              <TabsTrigger value="heatmap" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-heatmap">
+                Map
               </TabsTrigger>
-              <TabsTrigger value="document" data-testid="tab-document">
-                <FileText className="h-4 w-4 mr-2" />
-                Document
+              <TabsTrigger value="document" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-document">
+                <FileText className="h-4 w-4 hidden sm:block sm:mr-1" />
+                Doc
               </TabsTrigger>
             </TabsList>
 

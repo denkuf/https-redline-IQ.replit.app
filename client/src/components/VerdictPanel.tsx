@@ -65,7 +65,7 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
   return (
     <Card className={`${config.bgColor} ${config.borderColor} border-2`} data-testid="verdict-panel">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-4">
+        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Icon className={`h-6 w-6 ${config.iconColor}`} />
             <span>Should I Sign This?</span>
@@ -99,11 +99,11 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
             <ul className="space-y-2">
               {verdict.topRisks.map((risk, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm" data-testid={`top-risk-${i}`}>
-                  <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                  <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
                     risk.severity === "High" ? "bg-red-500" : 
                     risk.severity === "Medium" ? "bg-amber-500" : "bg-green-500"
                   }`} />
-                  <span>
+                  <span className="break-words min-w-0">
                     <strong>{risk.title}</strong>
                     <span className="text-muted-foreground"> - {risk.clauseReference}</span>
                   </span>
