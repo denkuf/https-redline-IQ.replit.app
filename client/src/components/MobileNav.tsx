@@ -1,12 +1,14 @@
 import { Link, useLocation } from "wouter";
-import { FileUp, LayoutDashboard, Zap, History, Settings, MoreHorizontal, MessageSquare, FileCheck, AlertOctagon } from "lucide-react";
+import { FileUp, LayoutDashboard, Zap, History, Settings, MoreHorizontal, MessageSquare, FileCheck, AlertOctagon, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/use-auth";
 
 const primaryTabs = [
   { title: "Upload", url: "/", icon: FileUp },
@@ -24,6 +26,7 @@ const moreItems = [
 
 export function MobileNav() {
   const [location] = useLocation();
+  const { logout, isLoggingOut } = useAuth();
 
   const isActive = (url: string) => {
     if (url === "/") return location === "/" || location === "";
@@ -84,6 +87,17 @@ export function MobileNav() {
                 </Link>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => logout()}
+              disabled={isLoggingOut}
+              data-testid="mobile-nav-sign-out"
+            >
+              <div className="flex items-center gap-3 w-full cursor-pointer text-destructive">
+                <LogOut className="h-4 w-4" />
+                <span>{isLoggingOut ? "Signing out..." : "Sign Out"}</span>
+              </div>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
