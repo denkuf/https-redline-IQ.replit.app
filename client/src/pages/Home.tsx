@@ -98,8 +98,8 @@ export default function Home() {
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 md:py-12">
         {/* Logo & Title - Mobile optimized */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center gap-3 mb-4">
-            <Logo size="xl" showText={false} iconOnly />
+          <div className="inline-flex items-center justify-center gap-3 mb-6">
+            <Logo size="hero" showText={false} iconOnly />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2">
             Know What You're Signing
@@ -133,7 +133,7 @@ export default function Home() {
         {/* Trust indicator */}
         <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
           <span>Powered by</span>
-          <Logo size="sm" />
+          <Logo size="md" />
         </div>
       </div>
     </div>

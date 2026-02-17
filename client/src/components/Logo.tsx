@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import logoImg from "@/assets/redlineiq-logo.png";
+import logoImg from "@assets/image_1771313683643.png";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg" | "xl" | "hero";
@@ -13,16 +13,24 @@ export function Logo({ size = "md", className, showText = true, iconOnly = false
     sm: "text-lg",
     md: "text-xl",
     lg: "text-2xl",
-    xl: "text-3xl",
+    xl: "text-4xl",
     hero: "text-5xl md:text-6xl",
   };
 
   const imgSizeClasses = {
-    sm: "h-8 w-8",
-    md: "h-11 w-11",
-    lg: "h-14 w-14",
-    xl: "h-24 w-24",
-    hero: "h-36 w-36 md:h-48 md:w-48",
+    sm: "h-9 w-9",
+    md: "h-12 w-12",
+    lg: "h-16 w-16",
+    xl: "h-28 w-28",
+    hero: "h-44 w-44 md:h-56 md:w-56",
+  };
+
+  const gapClasses = {
+    sm: "gap-2",
+    md: "gap-2",
+    lg: "gap-3",
+    xl: "gap-4",
+    hero: "gap-5",
   };
 
   if (iconOnly) {
@@ -37,7 +45,7 @@ export function Logo({ size = "md", className, showText = true, iconOnly = false
   }
 
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
+    <span className={cn("inline-flex items-center", gapClasses[size], className)}>
       <img
         src={logoImg}
         alt="RedlineIQ"
