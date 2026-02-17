@@ -820,3 +820,143 @@ GUIDELINES:
   const shareSafeContent = response.choices[0]?.message?.content || "{}";
   return JSON.parse(shareSafeContent);
 }
+
+// ============================================
+// V2 - Screenshot Intelligence + Universal Clarity Engine
+// ============================================
+
+export async function screenshotIntelligence(text: string, inputType: string = "text"): Promise<{
+  whatItIs: string;
+  whyItMatters: string;
+  whatToDoNext: string;
+  deadline: string | null;
+  consequenceOfIgnoring: string;
+  whatsTheCatch: string | null;
+  riskLevel: "safe" | "caution" | "danger";
+  flags: { issue: string; explanation: string; severity: string }[];
+  summary: string;
+}> {
+  const prompt = `Analyze this ${inputType === "image" ? "screenshot/image text" : "text"} that someone has shared for clarity and guidance.
+
+TEXT:
+"${text.substring(0, 6000)}"
+
+Respond in JSON:
+{
+  "whatItIs": "What is this document/message/text (1 sentence)",
+  "whyItMatters": "Why should they care about this (1-2 sentences)",
+  "whatToDoNext": "Clear next steps they should take (2-3 actionable items)",
+  "deadline": "Any deadline mentioned (null if none found)",
+  "consequenceOfIgnoring": "What happens if they do nothing (1-2 sentences)",
+  "whatsTheCatch": "Hidden risks or concerns they might miss (null if genuinely straightforward)",
+  "riskLevel": "safe" or "caution" or "danger",
+  "flags": [
+    { "issue": "Issue title", "explanation": "Why this matters", "severity": "Low/Medium/High" }
+  ],
+  "summary": "One-paragraph plain-English summary"
+}
+
+GUIDELINES:
+- Be practical, not alarmist
+- Write like you're helping a friend understand something confusing
+- Focus on ACTION - what should they actually DO
+- If it's genuinely harmless, say so clearly
+- Look for hidden fees, auto-renewals, deadlines, commitments
+- The "whatsTheCatch" should reveal non-obvious concerns`;
+
+  const response = await openai.chat.completions.create({
+    model: FAST_MODEL,
+    messages: [
+      { role: "system", content: "You are a personal advocate who helps people understand confusing documents, messages, emails, and notices. You cut through complexity and tell them what actually matters, what to do, and what to watch out for." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 1024,
+  });
+
+  const result = response.choices[0]?.message?.content || "{}";
+  return JSON.parse(result);
+}
+
+// V2 - Ask-Anytime Advocate Chat (Memory-Enabled)
+export async function advocateChat(
+  userMessage: string,
+  chatHistory: { role: string; content: string }[],
+  context: {
+    contracts?: { name: string; type: string; riskScore?: number; status: string }[];
+    obligations?: { title: string; dueDate?: string; status: string; type: string }[];
+    recurringObligations?: { title: string; category: string; nextDueDate?: string; amount?: string; provider?: string }[];
+    memories?: { category: string; title: string; content: string }[];
+    riskProfile?: string;
+  }
+): Promise<{
+  response: string;
+  referencedContracts?: number[];
+  memoryUpdate?: { category: string; title: string; content: string } | null;
+}> {
+  const contextParts: string[] = [];
+  
+  if (context.contracts?.length) {
+    contextParts.push(`USER'S CONTRACTS:\n${context.contracts.map(c => 
+      `- ${c.name} (${c.type}, Risk: ${c.riskScore ?? 'N/A'}, Status: ${c.status})`
+    ).join("\n")}`);
+  }
+  
+  if (context.obligations?.length) {
+    contextParts.push(`UPCOMING OBLIGATIONS:\n${context.obligations.map(o => 
+      `- ${o.title} (${o.type}, Due: ${o.dueDate || 'No date'}, ${o.status})`
+    ).join("\n")}`);
+  }
+
+  if (context.recurringObligations?.length) {
+    contextParts.push(`RECURRING OBLIGATIONS:\n${context.recurringObligations.map(r =>
+      `- ${r.title} (${r.category}, ${r.amount || ''}, Next: ${r.nextDueDate || 'N/A'}, Provider: ${r.provider || 'Unknown'})`
+    ).join("\n")}`);
+  }
+  
+  if (context.memories?.length) {
+    contextParts.push(`USER'S STORED MEMORIES/PREFERENCES:\n${context.memories.map(m => 
+      `- [${m.category}] ${m.title}: ${m.content}`
+    ).join("\n")}`);
+  }
+  
+  if (context.riskProfile) {
+    contextParts.push(`USER'S RISK PROFILE: ${context.riskProfile}`);
+  }
+
+  const systemPrompt = `You are a personal advocate and advisor - not just for legal matters, but for any situation where someone needs calm, clear guidance. You have access to the user's history and preferences.
+
+${contextParts.length ? "USER CONTEXT:\n" + contextParts.join("\n\n") : "No stored context yet."}
+
+RULES:
+1. Be calm, clear, and supportive
+2. Reference the user's stored data when relevant (mention specific contracts, obligations by name)
+3. Never invent legal citations
+4. Give practical, actionable advice
+5. If something requires a professional (lawyer, accountant), say so clearly
+6. Adapt your tone to the urgency - casual for simple questions, serious for urgent matters
+7. If you learn something important about the user's preferences or situation, include a memoryUpdate
+
+Respond in JSON:
+{
+  "response": "Your clear, helpful response",
+  "referencedContracts": [],
+  "memoryUpdate": null or { "category": "preference|boundary|life_event|dispute|risk_tolerance", "title": "Brief title", "content": "What to remember" }
+}`;
+
+  const messages: any[] = [
+    { role: "system", content: systemPrompt },
+    ...chatHistory.slice(-20).map(m => ({ role: m.role, content: m.content })),
+    { role: "user", content: userMessage },
+  ];
+
+  const response = await openai.chat.completions.create({
+    model: FAST_MODEL,
+    messages,
+    response_format: { type: "json_object" },
+    max_completion_tokens: 1024,
+  });
+
+  const result = response.choices[0]?.message?.content || '{"response": "I\'m sorry, I couldn\'t process that. Please try again."}';
+  return JSON.parse(result);
+}

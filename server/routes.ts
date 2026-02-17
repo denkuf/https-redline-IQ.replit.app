@@ -768,7 +768,6 @@ export async function registerRoutes(
       const signedContracts = await storage.getSignedContracts(userId);
       const upcomingObligations = await storage.getUpcomingObligations(userId, days);
       
-      // Filter for renewal and termination window obligations
       const expiryAlerts = upcomingObligations.filter(o => 
         o.type === 'renewal' || o.type === 'termination_window'
       );
@@ -780,6 +779,315 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Expiry radar error:", error);
       res.status(500).json({ message: "Failed to check expiry radar" });
+    }
+  });
+
+  // ============================================
+  // V2 - Life Command Center + New Features
+  // ============================================
+
+  // Command Center - aggregated dashboard data
+  app.get("/api/command-center", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      
+      const [guardianAlerts, recentScans, recentChats, recurringObs, allContracts, legalScore] = await Promise.all([
+        storage.getGuardianAlerts(userId),
+        storage.getQuickScans(userId),
+        storage.getAdvocateMessages(userId, 10),
+        storage.getRecurringObligations(userId),
+        storage.getAllContracts(userId),
+        storage.getUserLegalScore(userId),
+      ]);
+
+      res.json({
+        alerts: guardianAlerts,
+        recentScans: recentScans.slice(0, 5),
+        recentChats: recentChats.slice(-5),
+        recurringObligations: recurringObs.filter(r => r.status === "active"),
+        contractsCount: allContracts.length,
+        analyzedCount: allContracts.filter(c => c.status === "completed").length,
+        legalScore: legalScore?.currentScore || 50,
+      });
+    } catch (error) {
+      console.error("Command center error:", error);
+      res.status(500).json({ message: "Failed to load command center" });
+    }
+  });
+
+  // Screenshot Intelligence - analyze uploaded image/screenshot
+  app.post("/api/screenshot-intelligence", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      let text = req.body.text || "";
+      let inputType = "text";
+      let sourceFileName: string | undefined;
+
+      if (req.file) {
+        const { buffer, mimetype, originalname } = req.file;
+        sourceFileName = originalname;
+        inputType = mimetype.startsWith("image/") ? "image" : "file";
+        
+        const { parseFile } = await import("./fileParser");
+        text = await parseFile(buffer, mimetype, originalname);
+      }
+
+      if (!text?.trim()) {
+        return res.status(400).json({ message: "No text could be extracted" });
+      }
+
+      const { screenshotIntelligence } = await import("./ai");
+      const analysis = await screenshotIntelligence(text, inputType);
+
+      const scan = await storage.createQuickScan({
+        userId,
+        inputText: text,
+        inputType,
+        sourceFileName,
+        analysis,
+      });
+
+      res.json(scan);
+    } catch (error) {
+      console.error("Screenshot intelligence error:", error);
+      res.status(500).json({ message: "Failed to analyze" });
+    }
+  });
+
+  // Advocate Chat - send message
+  app.post("/api/advocate-chat", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { message } = req.body;
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      // Save user message
+      await storage.createAdvocateMessage({
+        userId,
+        role: "user",
+        content: message,
+      });
+
+      // Gather context
+      const [allContracts, obligations, recurringObs, memories, chatHistory] = await Promise.all([
+        storage.getAllContracts(userId),
+        storage.getUpcomingObligations(userId, 60),
+        storage.getRecurringObligations(userId),
+        storage.getUserMemory(userId),
+        storage.getAdvocateMessages(userId, 30),
+      ]);
+
+      const context = {
+        contracts: allContracts.slice(0, 10).map(c => ({
+          name: c.name,
+          type: c.type || "unknown",
+          riskScore: (c.analysis as any)?.verdict?.riskScore,
+          status: c.status || "unknown",
+        })),
+        obligations: obligations.map(o => ({
+          title: o.title,
+          dueDate: o.dueDate?.toISOString(),
+          status: o.status || "pending",
+          type: o.type,
+        })),
+        recurringObligations: recurringObs.filter(r => r.status === "active").map(r => ({
+          title: r.title,
+          category: r.category,
+          nextDueDate: r.nextDueDate?.toISOString(),
+          amount: r.amount || undefined,
+          provider: r.provider || undefined,
+        })),
+        memories: memories.slice(0, 20).map(m => ({
+          category: m.category,
+          title: m.title,
+          content: m.content,
+        })),
+      };
+
+      const { advocateChat: chatFn } = await import("./ai");
+      const result = await chatFn(
+        message,
+        chatHistory.map(m => ({ role: m.role, content: m.content })),
+        context
+      );
+
+      // Save assistant response
+      const assistantMsg = await storage.createAdvocateMessage({
+        userId,
+        role: "assistant",
+        content: result.response,
+        metadata: {
+          referencedContracts: result.referencedContracts,
+        },
+      });
+
+      // Auto-save memory if AI suggests one
+      if (result.memoryUpdate) {
+        await storage.createUserMemory({
+          userId,
+          category: result.memoryUpdate.category,
+          title: result.memoryUpdate.title,
+          content: result.memoryUpdate.content,
+          source: "advocate_chat",
+        });
+      }
+
+      res.json(assistantMsg);
+    } catch (error) {
+      console.error("Advocate chat error:", error);
+      res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // Get advocate chat history
+  app.get("/api/advocate-chat", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const messages = await storage.getAdvocateMessages(userId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+
+  // Clear advocate chat
+  app.delete("/api/advocate-chat", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      await storage.clearAdvocateMessages(userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error clearing chat:", error);
+      res.status(500).json({ message: "Failed to clear chat" });
+    }
+  });
+
+  // User Memory CRUD
+  app.get("/api/memory", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const category = req.query.category as string | undefined;
+      const memories = await storage.getUserMemory(userId, category);
+      res.json(memories);
+    } catch (error) {
+      console.error("Error fetching memory:", error);
+      res.status(500).json({ message: "Failed to fetch memory" });
+    }
+  });
+
+  app.post("/api/memory", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { category, title, content, source } = req.body;
+      if (!category || !title || !content) {
+        return res.status(400).json({ message: "Category, title, and content are required" });
+      }
+      const entry = await storage.createUserMemory({ userId, category, title, content, source });
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating memory:", error);
+      res.status(500).json({ message: "Failed to create memory" });
+    }
+  });
+
+  app.delete("/api/memory/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      await storage.deleteUserMemory(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting memory:", error);
+      res.status(500).json({ message: "Failed to delete memory" });
+    }
+  });
+
+  // Recurring Obligations CRUD
+  app.get("/api/recurring-obligations", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const obligations = await storage.getRecurringObligations(userId);
+      res.json(obligations);
+    } catch (error) {
+      console.error("Error fetching recurring obligations:", error);
+      res.status(500).json({ message: "Failed to fetch recurring obligations" });
+    }
+  });
+
+  app.post("/api/recurring-obligations", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { title, description, category, amount, frequency, nextDueDate, provider, autoRenew, cancellationNoticeDays, exitWindowStart, exitWindowEnd, penaltyForMissing, linkedContractId, notes } = req.body;
+      if (!title || !category || !frequency) {
+        return res.status(400).json({ message: "Title, category, and frequency are required" });
+      }
+      const obligation = await storage.createRecurringObligation({
+        userId,
+        title,
+        description,
+        category,
+        amount,
+        frequency,
+        nextDueDate: nextDueDate ? new Date(nextDueDate) : null,
+        provider,
+        autoRenew: autoRenew || false,
+        cancellationNoticeDays,
+        exitWindowStart: exitWindowStart ? new Date(exitWindowStart) : null,
+        exitWindowEnd: exitWindowEnd ? new Date(exitWindowEnd) : null,
+        penaltyForMissing,
+        linkedContractId,
+        notes,
+      });
+      res.status(201).json(obligation);
+    } catch (error) {
+      console.error("Error creating recurring obligation:", error);
+      res.status(500).json({ message: "Failed to create recurring obligation" });
+    }
+  });
+
+  app.patch("/api/recurring-obligations/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      if (updates.nextDueDate) updates.nextDueDate = new Date(updates.nextDueDate);
+      if (updates.exitWindowStart) updates.exitWindowStart = new Date(updates.exitWindowStart);
+      if (updates.exitWindowEnd) updates.exitWindowEnd = new Date(updates.exitWindowEnd);
+      const updated = await storage.updateRecurringObligation(id, userId, updates);
+      if (!updated) {
+        return res.status(404).json({ message: "Recurring obligation not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating recurring obligation:", error);
+      res.status(500).json({ message: "Failed to update recurring obligation" });
+    }
+  });
+
+  app.delete("/api/recurring-obligations/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      await storage.deleteRecurringObligation(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting recurring obligation:", error);
+      res.status(500).json({ message: "Failed to delete recurring obligation" });
+    }
+  });
+
+  // Guardian alerts
+  app.get("/api/guardian-alerts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const alerts = await storage.getGuardianAlerts(userId);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching guardian alerts:", error);
+      res.status(500).json({ message: "Failed to fetch guardian alerts" });
     }
   });
 

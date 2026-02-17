@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, Shield } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, Shield, CalendarClock, Camera, Bot } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -20,16 +20,18 @@ import { Logo } from "./Logo";
 
 const analyzeItems = [
   { title: "Upload Contract", url: "/", icon: FileUp },
-  { title: "Red Flag Shield", url: "/quick-scan", icon: Zap },
+  { title: "Screenshot Intel", url: "/quick-scan", icon: Camera },
   { title: "My Contracts", url: "/history", icon: History },
 ];
 
 const monitorItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Command Center", url: "/dashboard", icon: LayoutDashboard },
   { title: "Signed Contracts", url: "/signed-contracts", icon: FileCheck },
+  { title: "Obligations", url: "/recurring-obligations", icon: CalendarClock },
 ];
 
 const helpItems = [
+  { title: "Advocate Chat", url: "/advocate", icon: Bot },
   { title: "Negotiation Coach", url: "/negotiation-coach", icon: MessageSquare },
   { title: "Emergency Mode", url: "/emergency", icon: AlertOctagon },
 ];

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { FileUp, LayoutDashboard, Zap, History, Settings, MoreHorizontal, MessageSquare, FileCheck, AlertOctagon, LogOut } from "lucide-react";
+import { FileUp, LayoutDashboard, Camera, History, Settings, MoreHorizontal, MessageSquare, FileCheck, AlertOctagon, LogOut, Bot, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -11,13 +11,15 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 
 const primaryTabs = [
-  { title: "Upload", url: "/", icon: FileUp },
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Quick Scan", url: "/quick-scan", icon: Zap },
+  { title: "Home", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Scan", url: "/quick-scan", icon: Camera },
+  { title: "Chat", url: "/advocate", icon: Bot },
   { title: "History", url: "/history", icon: History },
 ];
 
 const moreItems = [
+  { title: "Upload Contract", url: "/", icon: FileUp },
+  { title: "Obligations", url: "/recurring-obligations", icon: CalendarClock },
   { title: "Signed Contracts", url: "/signed-contracts", icon: FileCheck },
   { title: "Negotiation Coach", url: "/negotiation-coach", icon: MessageSquare },
   { title: "Emergency Mode", url: "/emergency", icon: AlertOctagon },

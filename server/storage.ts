@@ -9,6 +9,9 @@ import {
   quickScans,
   negotiationSessions,
   userSettings,
+  advocateMessages,
+  userMemory,
+  recurringObligations,
   type Contract, 
   type InsertContract, 
   type AnalysisResult,
@@ -24,6 +27,12 @@ import {
   type InsertNegotiationSession,
   type CompanyIntelligence,
   type UserLegalScore,
+  type AdvocateMessage,
+  type InsertAdvocateMessage,
+  type UserMemoryEntry,
+  type InsertUserMemory,
+  type RecurringObligation,
+  type InsertRecurringObligation,
 } from "@shared/schema";
 import { eq, desc, like, sql, and, gte, lte, or } from "drizzle-orm";
 
@@ -70,6 +79,24 @@ export interface IStorage {
   // V3 - User legal score - userId required for data isolation
   getUserLegalScore(userId: string): Promise<UserLegalScore | undefined>;
   updateUserLegalScore(userId: string, updates: Partial<UserLegalScore>): Promise<UserLegalScore>;
+  
+  // V2 - Advocate chat messages
+  getAdvocateMessages(userId: string, limit?: number): Promise<AdvocateMessage[]>;
+  createAdvocateMessage(message: InsertAdvocateMessage): Promise<AdvocateMessage>;
+  clearAdvocateMessages(userId: string): Promise<void>;
+  
+  // V2 - User memory
+  getUserMemory(userId: string, category?: string): Promise<UserMemoryEntry[]>;
+  createUserMemory(entry: InsertUserMemory): Promise<UserMemoryEntry>;
+  deleteUserMemory(id: number, userId: string): Promise<void>;
+  
+  // V2 - Recurring obligations
+  getRecurringObligations(userId: string): Promise<RecurringObligation[]>;
+  getRecurringObligation(id: number, userId: string): Promise<RecurringObligation | undefined>;
+  createRecurringObligation(obligation: InsertRecurringObligation): Promise<RecurringObligation>;
+  updateRecurringObligation(id: number, userId: string, updates: Partial<InsertRecurringObligation>): Promise<RecurringObligation | undefined>;
+  deleteRecurringObligation(id: number, userId: string): Promise<void>;
+  getGuardianAlerts(userId: string): Promise<{ urgent: any[]; dueSoon: any[]; safe: any[] }>;
   
   // Delete all user data (for account deletion)
   deleteAllUserData(userId: string): Promise<void>;
@@ -320,21 +347,154 @@ class DbStorage implements IStorage {
     }
   }
 
+  // V2 - Advocate chat messages
+  async getAdvocateMessages(userId: string, limit: number = 50): Promise<AdvocateMessage[]> {
+    return db.select().from(advocateMessages)
+      .where(eq(advocateMessages.userId, userId))
+      .orderBy(advocateMessages.createdAt)
+      .limit(limit);
+  }
+
+  async createAdvocateMessage(message: InsertAdvocateMessage): Promise<AdvocateMessage> {
+    const [created] = await db.insert(advocateMessages).values(message).returning();
+    return created;
+  }
+
+  async clearAdvocateMessages(userId: string): Promise<void> {
+    await db.delete(advocateMessages).where(eq(advocateMessages.userId, userId));
+  }
+
+  // V2 - User memory
+  async getUserMemory(userId: string, category?: string): Promise<UserMemoryEntry[]> {
+    if (category) {
+      return db.select().from(userMemory)
+        .where(and(eq(userMemory.userId, userId), eq(userMemory.category, category)))
+        .orderBy(desc(userMemory.createdAt));
+    }
+    return db.select().from(userMemory)
+      .where(eq(userMemory.userId, userId))
+      .orderBy(desc(userMemory.createdAt));
+  }
+
+  async createUserMemory(entry: InsertUserMemory): Promise<UserMemoryEntry> {
+    const [created] = await db.insert(userMemory).values(entry).returning();
+    return created;
+  }
+
+  async deleteUserMemory(id: number, userId: string): Promise<void> {
+    await db.delete(userMemory).where(and(eq(userMemory.id, id), eq(userMemory.userId, userId)));
+  }
+
+  // V2 - Recurring obligations
+  async getRecurringObligations(userId: string): Promise<RecurringObligation[]> {
+    return db.select().from(recurringObligations)
+      .where(eq(recurringObligations.userId, userId))
+      .orderBy(recurringObligations.nextDueDate);
+  }
+
+  async getRecurringObligation(id: number, userId: string): Promise<RecurringObligation | undefined> {
+    const [found] = await db.select().from(recurringObligations)
+      .where(and(eq(recurringObligations.id, id), eq(recurringObligations.userId, userId)));
+    return found;
+  }
+
+  async createRecurringObligation(obligation: InsertRecurringObligation): Promise<RecurringObligation> {
+    const [created] = await db.insert(recurringObligations).values(obligation).returning();
+    return created;
+  }
+
+  async updateRecurringObligation(id: number, userId: string, updates: Partial<InsertRecurringObligation>): Promise<RecurringObligation | undefined> {
+    const [updated] = await db.update(recurringObligations)
+      .set(updates)
+      .where(and(eq(recurringObligations.id, id), eq(recurringObligations.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteRecurringObligation(id: number, userId: string): Promise<void> {
+    await db.delete(recurringObligations).where(and(eq(recurringObligations.id, id), eq(recurringObligations.userId, userId)));
+  }
+
+  async getGuardianAlerts(userId: string): Promise<{ urgent: any[]; dueSoon: any[]; safe: any[] }> {
+    const now = new Date();
+    const threeDays = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const fourteenDays = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    const allRecurring = await this.getRecurringObligations(userId);
+    const activeRecurring = allRecurring.filter(r => r.status === "active");
+
+    const contractOblResults = await db.select({
+      obligation: contractObligations,
+      signedContract: signedContracts,
+    })
+      .from(contractObligations)
+      .innerJoin(signedContracts, eq(contractObligations.signedContractId, signedContracts.id))
+      .where(and(
+        eq(contractObligations.status, "pending"),
+        eq(signedContracts.userId, userId)
+      ))
+      .orderBy(contractObligations.dueDate);
+
+    const urgent: any[] = [];
+    const dueSoon: any[] = [];
+    const safe: any[] = [];
+
+    for (const { obligation } of contractOblResults) {
+      if (!obligation.dueDate) continue;
+      const due = new Date(obligation.dueDate);
+      const item = { ...obligation, itemType: "contract_obligation" as const };
+      if (due <= now) {
+        urgent.push({ ...item, alertReason: "Overdue" });
+      } else if (due <= threeDays) {
+        urgent.push({ ...item, alertReason: `Due in ${Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days` });
+      } else if (due <= fourteenDays) {
+        dueSoon.push({ ...item, alertReason: `Due in ${Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days` });
+      } else {
+        safe.push({ ...item, alertReason: "On track" });
+      }
+    }
+
+    for (const rec of activeRecurring) {
+      if (!rec.nextDueDate) {
+        safe.push({ ...rec, itemType: "recurring" as const, alertReason: "No due date set" });
+        continue;
+      }
+      const due = new Date(rec.nextDueDate);
+      const item = { ...rec, itemType: "recurring" as const };
+      if (due <= now) {
+        urgent.push({ ...item, alertReason: "Overdue" });
+      } else if (due <= threeDays) {
+        urgent.push({ ...item, alertReason: `Due in ${Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days` });
+      } else if (due <= fourteenDays) {
+        dueSoon.push({ ...item, alertReason: `Due in ${Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days` });
+      } else {
+        safe.push({ ...item, alertReason: "On track" });
+      }
+
+      if (rec.exitWindowEnd) {
+        const exitEnd = new Date(rec.exitWindowEnd);
+        if (exitEnd > now && exitEnd <= fourteenDays) {
+          const daysLeft = Math.ceil((exitEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 3) {
+            urgent.push({ ...rec, itemType: "exit_window" as const, alertReason: `Exit window closes in ${daysLeft} days` });
+          } else {
+            dueSoon.push({ ...rec, itemType: "exit_window" as const, alertReason: `Exit window closes in ${daysLeft} days` });
+          }
+        }
+      }
+    }
+
+    return { urgent, dueSoon, safe };
+  }
+
   async deleteAllUserData(userId: string): Promise<void> {
-    // Delete all user data in a single transaction for atomicity
-    // This ensures all data is deleted or none is, preventing orphaned records
     await db.transaction(async (tx) => {
-      // Delete in order respecting foreign key constraints
-      // Tables with contractId FK must be deleted before contracts
-      // Tables with signedContractId FK must be deleted before signedContracts
-      
-      // 1. Delete negotiation sessions (references contracts.id)
+      await tx.delete(advocateMessages).where(eq(advocateMessages.userId, userId));
+      await tx.delete(userMemory).where(eq(userMemory.userId, userId));
+      await tx.delete(recurringObligations).where(eq(recurringObligations.userId, userId));
       await tx.delete(negotiationSessions).where(eq(negotiationSessions.userId, userId));
-      
-      // 2. Delete clause patterns (references contracts.id)
       await tx.delete(clausePatterns).where(eq(clausePatterns.userId, userId));
       
-      // 3. Delete contract obligations (depends on signed contracts)
       const userSignedContracts = await tx.select({ id: signedContracts.id })
         .from(signedContracts)
         .where(eq(signedContracts.userId, userId));
@@ -343,19 +503,10 @@ class DbStorage implements IStorage {
         await tx.delete(contractObligations).where(eq(contractObligations.signedContractId, sc.id));
       }
       
-      // 4. Delete signed contracts (references contracts.id)
       await tx.delete(signedContracts).where(eq(signedContracts.userId, userId));
-      
-      // 5. Delete contracts
       await tx.delete(contracts).where(eq(contracts.userId, userId));
-      
-      // 6. Delete quick scans
       await tx.delete(quickScans).where(eq(quickScans.userId, userId));
-      
-      // 7. Delete user legal score
       await tx.delete(userLegalScore).where(eq(userLegalScore.userId, userId));
-      
-      // 8. Delete user settings
       await tx.delete(userSettings).where(eq(userSettings.userId, userId));
     });
   }

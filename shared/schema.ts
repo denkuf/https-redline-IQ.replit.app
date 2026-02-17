@@ -246,16 +246,27 @@ export const userLegalScore = pgTable("user_legal_score", {
 
 export type UserLegalScore = typeof userLegalScore.$inferSelect;
 
-// Quick scans - for Red Flag Shield instant analysis
+// Screenshot Intelligence analysis result
+export interface ScreenshotAnalysis {
+  whatItIs: string;
+  whyItMatters: string;
+  whatToDoNext: string;
+  deadline: string | null;
+  consequenceOfIgnoring: string;
+  whatsTheCatch: string | null;
+  riskLevel: "safe" | "caution" | "danger";
+  flags: { issue: string; explanation: string; severity: string }[];
+  summary: string;
+}
+
+// Quick scans - Screenshot Intelligence + Universal Clarity Engine
 export const quickScans = pgTable("quick_scans", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").references(() => users.id),
   inputText: text("input_text").notNull(),
-  analysis: jsonb("analysis").$type<{
-    riskLevel: "safe" | "caution" | "danger";
-    flags: { issue: string; explanation: string; severity: string }[];
-    summary: string;
-  }>(),
+  inputType: text("input_type").default("text"),
+  sourceFileName: text("source_file_name"),
+  analysis: jsonb("analysis").$type<ScreenshotAnalysis>(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -275,7 +286,66 @@ export const negotiationSessions = pgTable("negotiation_sessions", {
 
 export type NegotiationSession = typeof negotiationSessions.$inferSelect;
 
-// Insert schemas for V3 tables
+// ============================================
+// V2 - Life Command Center Layer
+// ============================================
+
+// Advocate chat messages - Ask-Anytime Advocate
+export const advocateMessages = pgTable("advocate_messages", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  metadata: jsonb("metadata").$type<{
+    referencedContracts?: number[];
+    referencedObligations?: number[];
+    memoryUsed?: string[];
+  }>(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type AdvocateMessage = typeof advocateMessages.$inferSelect;
+
+// User memory - Legal & Life Memory Engine
+export const userMemory = pgTable("user_memory", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  source: text("source"),
+  sourceId: integer("source_id"),
+  importance: text("importance").default("normal"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type UserMemoryEntry = typeof userMemory.$inferSelect;
+
+// Recurring obligations - extends beyond contracts to real life
+export const recurringObligations = pgTable("recurring_obligations", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  amount: text("amount"),
+  frequency: text("frequency").notNull(),
+  nextDueDate: timestamp("next_due_date"),
+  provider: text("provider"),
+  autoRenew: boolean("auto_renew").default(false),
+  cancellationNoticeDays: integer("cancellation_notice_days"),
+  exitWindowStart: timestamp("exit_window_start"),
+  exitWindowEnd: timestamp("exit_window_end"),
+  penaltyForMissing: text("penalty_for_missing"),
+  linkedContractId: integer("linked_contract_id").references(() => contracts.id),
+  status: text("status").default("active"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type RecurringObligation = typeof recurringObligations.$inferSelect;
+
+// Insert schemas for all tables
 export const insertClausePatternSchema = createInsertSchema(clausePatterns).omit({
   id: true,
   createdAt: true,
@@ -301,8 +371,26 @@ export const insertNegotiationSessionSchema = createInsertSchema(negotiationSess
   createdAt: true,
 });
 
+export const insertAdvocateMessageSchema = createInsertSchema(advocateMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserMemorySchema = createInsertSchema(userMemory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRecurringObligationSchema = createInsertSchema(recurringObligations).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertClausePattern = z.infer<typeof insertClausePatternSchema>;
 export type InsertSignedContract = z.infer<typeof insertSignedContractSchema>;
 export type InsertContractObligation = z.infer<typeof insertContractObligationSchema>;
 export type InsertQuickScan = z.infer<typeof insertQuickScanSchema>;
 export type InsertNegotiationSession = z.infer<typeof insertNegotiationSessionSchema>;
+export type InsertAdvocateMessage = z.infer<typeof insertAdvocateMessageSchema>;
+export type InsertUserMemory = z.infer<typeof insertUserMemorySchema>;
+export type InsertRecurringObligation = z.infer<typeof insertRecurringObligationSchema>;

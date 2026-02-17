@@ -24,6 +24,8 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import VerifyEmail from "@/pages/VerifyEmail";
+import RecurringObligations from "@/pages/RecurringObligations";
+import AdvocateChat from "@/pages/AdvocateChat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -39,6 +41,8 @@ function Router() {
       <Route path="/negotiation-coach" component={NegotiationCoach} />
       <Route path="/signed-contracts" component={SignedContracts} />
       <Route path="/signed-contracts/:id" component={SignedContractDetail} />
+      <Route path="/recurring-obligations" component={RecurringObligations} />
+      <Route path="/advocate" component={AdvocateChat} />
       <Route path="/emergency" component={Emergency} />
       <Route component={NotFound} />
     </Switch>
