@@ -23,7 +23,7 @@ export default function Landing() {
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center">
               <div className="flex justify-center mb-8">
-                <img src={logoImg} alt="RedlineIQ" className="h-24 md:h-32 object-contain" data-testid="img-hero-logo" />
+                <Logo size="hero" showText={false} iconOnly />
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-foreground">
                 Your Digital Lawyer in Your Pocket
@@ -51,7 +51,7 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="hover-elevate">
                 <CardHeader>
-                  <img src={logoImg} alt="" className="h-10 w-10 object-contain mb-2" />
+                  <img src={logoImg} alt="" className="h-10 w-10 object-contain mix-blend-multiply dark:mix-blend-normal mb-2" />
                   <CardTitle>Red Flag Shield</CardTitle>
                   <CardDescription>
                     Paste any clause from a contract, email, or WhatsApp and instantly detect 

@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield, FileText, AlertTriangle, ClipboardList } from "lucide-react";
+import { FileText, AlertTriangle, ClipboardList } from "lucide-react";
+import { logoImg } from "@/components/Logo";
 
 export function AnalysisLoading() {
   return (
@@ -8,8 +9,8 @@ export function AnalysisLoading() {
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-primary/10">
-              <Shield className="h-6 w-6 text-primary animate-pulse-soft" />
+            <div className="p-2">
+              <img src={logoImg} alt="RedlineIQ" className="h-10 w-10 object-contain mix-blend-multiply dark:mix-blend-normal animate-pulse-soft" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg mb-1">Analyzing Your Contract...</h3>

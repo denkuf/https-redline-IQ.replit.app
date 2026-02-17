@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { FileUpload } from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Sparkles, FileSearch, MessageSquare, Target } from "lucide-react";
+import { Sparkles, FileSearch, MessageSquare, Target } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
@@ -99,9 +99,7 @@ export default function Home() {
         {/* Logo & Title - Mobile optimized */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center gap-3 mb-4">
-            <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shadow-sm">
-              <Shield className="h-7 w-7 md:h-8 md:w-8 text-primary" />
-            </div>
+            <Logo size="xl" showText={false} iconOnly />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2">
             Know What You're Signing
@@ -134,8 +132,8 @@ export default function Home() {
 
         {/* Trust indicator */}
         <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
-          <Shield className="h-3.5 w-3.5" />
-          <span>Powered by <Logo size="sm" /></span>
+          <span>Powered by</span>
+          <Logo size="sm" />
         </div>
       </div>
     </div>
