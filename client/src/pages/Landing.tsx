@@ -51,7 +51,7 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="hover-elevate">
                 <CardHeader>
-                  <img src={logoImg} alt="" className="h-10 w-10 object-contain mix-blend-multiply dark:mix-blend-normal mb-2" />
+                  <img src={logoImg} alt="" className="h-12 w-12 object-contain mb-2" />
                   <CardTitle>Red Flag Shield</CardTitle>
                   <CardDescription>
                     Paste any clause from a contract, email, or WhatsApp and instantly detect 

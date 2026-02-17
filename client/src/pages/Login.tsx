@@ -39,8 +39,8 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <Logo size="xl" showText={false} iconOnly />
+          <div className="flex justify-center mb-6">
+            <Logo size="hero" showText={false} iconOnly />
           </div>
           <CardTitle className="text-2xl">Welcome Back</CardTitle>
           <CardDescription>Sign in to your <Logo size="sm" /> account</CardDescription>

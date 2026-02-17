@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import logoImg from "@assets/image_1771312836980.png";
+import logoImg from "@/assets/redlineiq-logo.png";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg" | "xl" | "hero";
@@ -14,15 +14,15 @@ export function Logo({ size = "md", className, showText = true, iconOnly = false
     md: "text-xl",
     lg: "text-2xl",
     xl: "text-3xl",
-    hero: "text-4xl",
+    hero: "text-5xl md:text-6xl",
   };
 
   const imgSizeClasses = {
-    sm: "h-7 w-7",
-    md: "h-10 w-10",
-    lg: "h-12 w-12",
-    xl: "h-20 w-20",
-    hero: "h-28 w-28 md:h-36 md:w-36",
+    sm: "h-8 w-8",
+    md: "h-11 w-11",
+    lg: "h-14 w-14",
+    xl: "h-24 w-24",
+    hero: "h-36 w-36 md:h-48 md:w-48",
   };
 
   if (iconOnly) {
@@ -30,7 +30,7 @@ export function Logo({ size = "md", className, showText = true, iconOnly = false
       <img
         src={logoImg}
         alt="RedlineIQ"
-        className={cn(imgSizeClasses[size], "object-contain mix-blend-multiply dark:mix-blend-normal dark:drop-shadow-[0_0_1px_rgba(255,255,255,0.3)]", className)}
+        className={cn(imgSizeClasses[size], "object-contain", className)}
         data-testid="img-logo-icon"
       />
     );
@@ -41,7 +41,7 @@ export function Logo({ size = "md", className, showText = true, iconOnly = false
       <img
         src={logoImg}
         alt="RedlineIQ"
-        className={cn(imgSizeClasses[size], "object-contain mix-blend-multiply dark:mix-blend-normal dark:drop-shadow-[0_0_1px_rgba(255,255,255,0.3)]")}
+        className={cn(imgSizeClasses[size], "object-contain")}
         data-testid="img-logo-icon"
       />
       {showText && (

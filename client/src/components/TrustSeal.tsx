@@ -12,7 +12,7 @@ export function TrustSeal({ className }: TrustSealProps) {
       <CardContent className="py-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center justify-center w-12 h-12">
-            <img src={logoImg} alt="RedlineIQ" className="h-10 w-10 object-contain mix-blend-multiply dark:mix-blend-normal" />
+            <img src={logoImg} alt="RedlineIQ" className="h-12 w-12 object-contain" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">

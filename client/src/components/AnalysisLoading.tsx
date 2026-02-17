@@ -10,7 +10,7 @@ export function AnalysisLoading() {
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
             <div className="p-2">
-              <img src={logoImg} alt="RedlineIQ" className="h-10 w-10 object-contain mix-blend-multiply dark:mix-blend-normal animate-pulse-soft" />
+              <img src={logoImg} alt="RedlineIQ" className="h-12 w-12 object-contain animate-pulse-soft" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg mb-1">Analyzing Your Contract...</h3>
