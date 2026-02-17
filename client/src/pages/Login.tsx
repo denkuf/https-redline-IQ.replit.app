@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Logo } from "@/components/Logo";
-import { Shield } from "lucide-react";
+import { Logo, logoImg } from "@/components/Logo";
 import { Link } from "wouter";
 
 export default function Login() {
@@ -41,9 +40,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center" data-testid="img-login-logo">
-              <Shield className="h-8 w-8 text-primary" />
-            </div>
+            <img src={logoImg} alt="RedlineIQ" className="h-16 w-16 object-contain" data-testid="img-login-logo" />
           </div>
           <CardTitle className="text-2xl">Welcome Back</CardTitle>
           <CardDescription>Sign in to your <Logo size="sm" /> account</CardDescription>

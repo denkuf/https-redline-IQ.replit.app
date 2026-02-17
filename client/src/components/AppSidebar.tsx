@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, Shield, CalendarClock, Camera, Bot } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, CalendarClock, Camera, Bot } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -47,9 +47,6 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 pb-6">
         <Link href="/" className="flex items-center justify-center gap-2" data-testid="nav-home-logo">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Shield className="h-5 w-5 text-primary" />
-          </div>
           <Logo size="lg" />
         </Link>
       </SidebarHeader>

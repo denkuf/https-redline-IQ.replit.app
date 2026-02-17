@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, FileSearch, Scale, AlertTriangle, MessageSquare, FileText } from "lucide-react";
-import redlineIqLogo from "@/assets/logo.png";
+import { FileSearch, Scale, AlertTriangle, MessageSquare, FileText } from "lucide-react";
+import { Logo, logoImg } from "@/components/Logo";
 
 export default function Landing() {
   return (
@@ -9,8 +9,7 @@ export default function Landing() {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={redlineIqLogo} alt="RedlineIQ" className="h-10" data-testid="img-logo" />
-            <span className="text-xl font-bold text-foreground">RedlineIQ</span>
+            <Logo size="lg" />
           </div>
           <a href="/login" data-testid="link-login">
             <Button>Sign In</Button>
@@ -24,7 +23,7 @@ export default function Landing() {
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center">
               <div className="flex justify-center mb-8">
-                <img src={redlineIqLogo} alt="RedlineIQ" className="h-24 md:h-32" data-testid="img-hero-logo" />
+                <img src={logoImg} alt="RedlineIQ" className="h-24 md:h-32 object-contain" data-testid="img-hero-logo" />
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-foreground">
                 Your Digital Lawyer in Your Pocket
@@ -52,7 +51,7 @@ export default function Landing() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="hover-elevate">
                 <CardHeader>
-                  <Shield className="h-10 w-10 text-primary mb-2" />
+                  <img src={logoImg} alt="" className="h-10 w-10 object-contain mb-2" />
                   <CardTitle>Red Flag Shield</CardTitle>
                   <CardDescription>
                     Paste any clause from a contract, email, or WhatsApp and instantly detect 
