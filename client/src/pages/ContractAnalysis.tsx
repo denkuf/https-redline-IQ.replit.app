@@ -71,7 +71,10 @@ export default function ContractAnalysis() {
       toast({ title: "Re-analysis complete", description: "New version created and compared." });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
-      navigate(`/compare/${contractId}`);
+      if (data.newContractId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/contracts", data.newContractId] });
+      }
+      navigate(`/compare/${data.newContractId || contractId}`);
     },
     onError: () => {
       toast({ title: "Re-analysis failed", description: "Please try again.", variant: "destructive" });

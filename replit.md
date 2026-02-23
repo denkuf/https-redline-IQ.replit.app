@@ -50,6 +50,14 @@ Redline IQ is a contract analysis web application designed to empower individual
     -   **Personal Guardian Mode**: Background monitoring categorizing obligations as Urgent, Due Soon, or Safe.
     -   **Legal & Life Memory Engine**: Auto-saves user preferences and context from advocate chat.
     -   **Bonus Features**: "Explain Like I'm 12," "What If? Simulator," "Contract Expiry Radar," "Is This Normal?," "Share-Safe Summary," and "Trust Seal."
+    -   **Notification System**: In-app notifications for contract deadlines and obligation reminders. Bell icon with unread count in header. Generate reminders from upcoming deadlines.
+    -   **Contract Comparison**: Side-by-side diff view comparing contract versions. Upload revised versions and see risk score changes, added/removed clauses.
+    -   **Shareable Summary Links**: Generate public share links for contract summaries. Public view at /shared/:token accessible without authentication. Links expire after 7 days.
+    -   **Onboarding Tutorial**: 5-step walkthrough for first-time users. Stored in localStorage (redlineiq_onboarding_complete). Can be skipped.
+    -   **Favorites/Pinned Contracts**: Star/pin contracts on History page. Favorites tab to filter pinned contracts.
+    -   **Weekly Legal Health Digest**: Legal score, urgent alerts, upcoming deadlines, auto-renew warnings, and contract stats.
+    -   **Template Library**: 6 pre-loaded contract templates (NDA, Freelance, Lease, Employment, SaaS, Vendor) with annotations, risk-level coloring, and common red flags.
+    -   **Re-Analysis After Edits**: Upload revised contract version from contract detail page. Creates new version and navigates to comparison view.
     -   **Account Deletion**: Full atomic transaction for user data removal upon account deletion.
 
 ### External Dependencies
