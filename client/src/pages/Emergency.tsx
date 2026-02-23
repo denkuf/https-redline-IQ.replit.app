@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertOctagon, Loader2, FileText, ArrowRight, Copy, Check } from "lucide-react";
+import { AlertOctagon, Loader2, FileText, ArrowRight, Copy, Check, Upload, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface EmergencyResult {
@@ -18,10 +18,24 @@ export default function Emergency() {
   const [issue, setIssue] = useState("");
   const [result, setResult] = useState<EmergencyResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const emergencyMutation = useMutation({
-    mutationFn: async (issueText: string) => {
-      const response = await apiRequest("POST", "/api/emergency", { issue: issueText });
+    mutationFn: async ({ text, file }: { text: string; file: File | null }) => {
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (text.trim()) formData.append("issue", text);
+        const res = await fetch("/api/emergency", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to analyze");
+        return res.json();
+      }
+      const response = await apiRequest("POST", "/api/emergency", { issue: text });
       return response.json();
     },
     onSuccess: (data) => {
@@ -30,9 +44,14 @@ export default function Emergency() {
   });
 
   const handleSubmit = () => {
-    if (issue.trim()) {
-      emergencyMutation.mutate(issue);
+    if (issue.trim() || uploadedFile) {
+      emergencyMutation.mutate({ text: issue, file: uploadedFile });
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setUploadedFile(file);
   };
 
   const copyLawyerSummary = async () => {
@@ -72,9 +91,50 @@ export default function Emergency() {
             className="min-h-[150px]"
             data-testid="input-emergency-issue"
           />
+
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg"
+              onChange={handleFileChange}
+              className="hidden"
+              data-testid="input-file-upload"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-upload-file"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload File
+            </Button>
+            {uploadedFile && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate max-w-[200px]">{uploadedFile.name}</span>
+                <button
+                  onClick={() => {
+                    setUploadedFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="hover:text-foreground"
+                  data-testid="button-remove-file"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Describe your situation above or upload a document (PDF, DOCX, image) related to the issue
+          </p>
+
           <Button
             onClick={handleSubmit}
-            disabled={!issue.trim() || emergencyMutation.isPending}
+            disabled={(!issue.trim() && !uploadedFile) || emergencyMutation.isPending}
             variant="destructive"
             data-testid="button-get-help"
           >

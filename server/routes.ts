@@ -570,10 +570,17 @@ export async function registerRoutes(
   });
 
   // Negotiation coach - get draft replies (requires auth)
-  app.post("/api/negotiation-coach", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/negotiation-coach", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { message, contractId, context } = req.body;
+      let { message, contractId, context } = req.body;
+
+      if (req.file) {
+        const { parseFile } = await import("./fileParser");
+        const extractedText = await parseFile(req.file.buffer, req.file.mimetype, req.file.originalname);
+        message = message ? `${message}\n\n${extractedText}` : extractedText;
+      }
+
       if (!message) {
         return res.status(400).json({ message: "Message is required" });
       }
@@ -656,10 +663,17 @@ export async function registerRoutes(
   });
 
   // Emergency mode (requires auth)
-  app.post("/api/emergency", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/emergency", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { issue } = req.body;
+      let { issue } = req.body;
+
+      if (req.file) {
+        const { parseFile } = await import("./fileParser");
+        const extractedText = await parseFile(req.file.buffer, req.file.mimetype, req.file.originalname);
+        issue = issue ? `${issue}\n\n${extractedText}` : extractedText;
+      }
+
       if (!issue) {
         return res.status(400).json({ message: "Issue description is required" });
       }

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, BookOpen, FileText, Loader2 } from "lucide-react";
+import { AlertTriangle, BookOpen, FileText, Loader2, Download } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractTemplate, Contract } from "@shared/schema";
@@ -44,6 +44,18 @@ export default function TemplateLibrary() {
       });
     },
   });
+
+  const handleDownloadTemplate = (template: ContractTemplate) => {
+    const blob = new Blob([template.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${template.name.replace(/\s+/g, "_")}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const categories = templates
     ? Array.from(new Set(templates.map((t) => t.category)))
@@ -228,24 +240,35 @@ export default function TemplateLibrary() {
                   </div>
                 </div>
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={() => {
-                    useTemplateMutation.mutate(selectedTemplate.id);
-                  }}
-                  disabled={useTemplateMutation.isPending}
-                  data-testid="button-use-template"
-                >
-                  {useTemplateMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading Template...
-                    </>
-                  ) : (
-                    "Use This Template"
-                  )}
-                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    className="flex-1"
+                    size="lg"
+                    onClick={() => {
+                      useTemplateMutation.mutate(selectedTemplate.id);
+                    }}
+                    disabled={useTemplateMutation.isPending}
+                    data-testid="button-use-template"
+                  >
+                    {useTemplateMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading Template...
+                      </>
+                    ) : (
+                      "Use This Template"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleDownloadTemplate(selectedTemplate)}
+                    data-testid="button-download-template"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
               </div>
             </>
           )}
