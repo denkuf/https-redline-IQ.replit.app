@@ -1079,6 +1079,331 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================
+  // V1 Release - Sticky Features
+  // ============================================
+
+  // Notifications - list
+  app.get("/api/notifications", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const limit = parseInt(req.query.limit as string) || 50;
+      const notifications = await storage.getNotifications(userId, limit);
+      const unreadCount = await storage.getUnreadNotificationCount(userId);
+      res.json({ notifications, unreadCount });
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  // Notifications - mark read
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      await storage.markNotificationRead(id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ message: "Failed to mark notification read" });
+    }
+  });
+
+  // Notifications - mark all read
+  app.post("/api/notifications/mark-all-read", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications read" });
+    }
+  });
+
+  // Notifications - generate deadline reminders on demand
+  app.post("/api/notifications/generate-reminders", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const alerts = await storage.getGuardianAlerts(userId);
+      let created = 0;
+
+      for (const item of [...alerts.urgent, ...alerts.dueSoon]) {
+        await storage.createNotification({
+          userId,
+          type: "deadline_reminder",
+          title: item.title || "Upcoming Deadline",
+          message: item.alertReason || "You have an upcoming deadline",
+          relatedId: item.id,
+          relatedType: item.itemType || "obligation",
+        });
+        created++;
+      }
+
+      res.json({ created });
+    } catch (error) {
+      console.error("Error generating reminders:", error);
+      res.status(500).json({ message: "Failed to generate reminders" });
+    }
+  });
+
+  // Favorites - list
+  app.get("/api/favorites", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const favorites = await storage.getFavorites(userId);
+      res.json(favorites);
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      res.status(500).json({ message: "Failed to fetch favorites" });
+    }
+  });
+
+  // Favorites - check
+  app.get("/api/favorites/:contractId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const contractId = parseInt(req.params.contractId);
+      const isFav = await storage.isFavorite(userId, contractId);
+      res.json({ isFavorite: isFav });
+    } catch (error) {
+      console.error("Error checking favorite:", error);
+      res.status(500).json({ message: "Failed to check favorite" });
+    }
+  });
+
+  // Favorites - add
+  app.post("/api/favorites", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { contractId } = req.body;
+      if (!contractId) {
+        return res.status(400).json({ message: "Contract ID is required" });
+      }
+      const favorite = await storage.addFavorite({ userId, contractId });
+      res.status(201).json(favorite);
+    } catch (error) {
+      console.error("Error adding favorite:", error);
+      res.status(500).json({ message: "Failed to add favorite" });
+    }
+  });
+
+  // Favorites - remove
+  app.delete("/api/favorites/:contractId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const contractId = parseInt(req.params.contractId);
+      await storage.removeFavorite(userId, contractId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing favorite:", error);
+      res.status(500).json({ message: "Failed to remove favorite" });
+    }
+  });
+
+  // Share links - create
+  app.post("/api/share-links", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { contractId } = req.body;
+      if (!contractId) {
+        return res.status(400).json({ message: "Contract ID is required" });
+      }
+
+      const contract = await storage.getContract(contractId, userId);
+      if (!contract || !contract.analysis) {
+        return res.status(404).json({ message: "Contract not found or not analyzed" });
+      }
+
+      const analysis = contract.analysis as any;
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+
+      const summary = {
+        contractName: contract.name,
+        verdict: analysis.verdict?.verdict || "Unknown",
+        riskScore: analysis.verdict?.riskScore || 0,
+        topRisks: analysis.verdict?.topRisks?.map((r: any) => r.title) || [],
+        keyPoints: [
+          analysis.summary?.whatItIs || "",
+          ...(analysis.summary?.userObligations?.slice(0, 2) || []),
+        ].filter(Boolean),
+        recommendation: analysis.verdict?.reasoning || analysis.overallAssessment || "",
+      };
+
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const link = await storage.createShareLink({
+        userId,
+        contractId,
+        token,
+        summary,
+        expiresAt,
+      });
+
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Error creating share link:", error);
+      res.status(500).json({ message: "Failed to create share link" });
+    }
+  });
+
+  // Share links - list user's links
+  app.get("/api/share-links", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const links = await storage.getShareLinks(userId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching share links:", error);
+      res.status(500).json({ message: "Failed to fetch share links" });
+    }
+  });
+
+  // Share links - public view (no auth required)
+  app.get("/api/shared/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getShareLinkByToken(token);
+      if (!link) {
+        return res.status(404).json({ message: "Share link not found" });
+      }
+      if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+        return res.status(410).json({ message: "Share link has expired" });
+      }
+      await storage.incrementShareLinkViews(token);
+      res.json({ summary: link.summary, createdAt: link.createdAt, viewCount: (link.viewCount || 0) + 1 });
+    } catch (error) {
+      console.error("Error fetching shared summary:", error);
+      res.status(500).json({ message: "Failed to fetch shared summary" });
+    }
+  });
+
+  // Templates - list
+  app.get("/api/templates", async (req: Request, res: Response) => {
+    try {
+      const templates = await storage.getTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  // Templates - single
+  app.get("/api/templates/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const template = await storage.getTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching template:", error);
+      res.status(500).json({ message: "Failed to fetch template" });
+    }
+  });
+
+  // Templates - use template (creates contract from template)
+  app.post("/api/templates/:id/use", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const id = parseInt(req.params.id);
+      const template = await storage.getTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+
+      const contract = await storage.createContract({
+        name: `${template.name} (from template)`,
+        extractedText: template.content,
+        industryMode: template.industryMode || "general",
+        status: "analyzing",
+        userId,
+      });
+
+      analyzeContract(template.content, (template.industryMode || "general") as IndustryMode)
+        .then(async (result) => {
+          await storage.updateContractAnalysis(contract.id, result, "completed");
+        })
+        .catch(async (error) => {
+          console.error("Template analysis failed:", error);
+          await storage.updateContract(contract.id, userId, { status: "error" });
+        });
+
+      res.status(201).json(contract);
+    } catch (error) {
+      console.error("Error using template:", error);
+      res.status(500).json({ message: "Failed to use template" });
+    }
+  });
+
+  // Weekly Legal Health Digest - computed on demand
+  app.get("/api/digest", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+
+      const [alerts, contracts, recurringObs, legalScore, signedContracts] = await Promise.all([
+        storage.getGuardianAlerts(userId),
+        storage.getAllContracts(userId),
+        storage.getRecurringObligations(userId),
+        storage.getUserLegalScore(userId),
+        storage.getSignedContracts(userId),
+      ]);
+
+      const activeRecurring = recurringObs.filter(r => r.status === "active");
+      const recentContracts = contracts.filter(c => {
+        const created = new Date(c.createdAt);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        return created >= weekAgo;
+      });
+
+      res.json({
+        legalScore: legalScore?.currentScore || 50,
+        urgentAlerts: alerts.urgent.length,
+        dueSoonAlerts: alerts.dueSoon.length,
+        activeObligations: activeRecurring.length,
+        contractsAnalyzedThisWeek: recentContracts.length,
+        totalContracts: contracts.length,
+        activeSignedContracts: signedContracts.filter(s => s.status === "active").length,
+        upcomingDeadlines: [...alerts.urgent, ...alerts.dueSoon].slice(0, 10),
+        autoRenewWarnings: activeRecurring.filter(r => r.autoRenew && r.exitWindowEnd).map(r => ({
+          title: r.title,
+          provider: r.provider,
+          exitWindowEnd: r.exitWindowEnd,
+          cancellationNoticeDays: r.cancellationNoticeDays,
+        })),
+      });
+    } catch (error) {
+      console.error("Error generating digest:", error);
+      res.status(500).json({ message: "Failed to generate digest" });
+    }
+  });
+
+  // Contract version comparison (re-analysis)
+  app.get("/api/contracts/:id/versions", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+
+      const allContracts = await storage.getAllContracts(userId);
+      const versions = allContracts.filter(c =>
+        c.id === id || c.parentContractId === id || (contract.parentContractId && c.parentContractId === contract.parentContractId) || c.id === contract.parentContractId
+      ).sort((a, b) => (a.version || 1) - (b.version || 1));
+
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching versions:", error);
+      res.status(500).json({ message: "Failed to fetch versions" });
+    }
+  });
+
   // Guardian alerts
   app.get("/api/guardian-alerts", isAuthenticated, async (req: Request, res: Response) => {
     try {

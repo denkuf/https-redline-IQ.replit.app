@@ -9,10 +9,13 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Logo } from "@/components/Logo";
+import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Loader2 } from "lucide-react";
 import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
+import ContractCompare from "@/pages/ContractCompare";
 import History from "@/pages/History";
 import Settings from "@/pages/Settings";
 import Dashboard from "@/pages/Dashboard";
@@ -26,14 +29,21 @@ import Register from "@/pages/Register";
 import VerifyEmail from "@/pages/VerifyEmail";
 import RecurringObligations from "@/pages/RecurringObligations";
 import AdvocateChat from "@/pages/AdvocateChat";
+import Notifications from "@/pages/Notifications";
+import TemplateLibrary from "@/pages/TemplateLibrary";
+import WeeklyDigest from "@/pages/WeeklyDigest";
+import SharedSummaryView from "@/pages/SharedSummaryView";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/shared/:token" component={SharedSummaryView} />
       <Route path="/" component={Home} />
       <Route path="/contract/:id" component={ContractAnalysis} />
       <Route path="/contracts/:id" component={ContractAnalysis} />
+      <Route path="/compare/:id" component={ContractCompare} />
+      <Route path="/compare" component={ContractCompare} />
       <Route path="/history" component={History} />
       <Route path="/settings" component={Settings} />
       <Route path="/dashboard" component={Dashboard} />
@@ -43,6 +53,9 @@ function Router() {
       <Route path="/signed-contracts/:id" component={SignedContractDetail} />
       <Route path="/recurring-obligations" component={RecurringObligations} />
       <Route path="/advocate" component={AdvocateChat} />
+      <Route path="/notifications" component={Notifications} />
+      <Route path="/templates" component={TemplateLibrary} />
+      <Route path="/weekly-digest" component={WeeklyDigest} />
       <Route path="/emergency" component={Emergency} />
       <Route component={NotFound} />
     </Switch>
@@ -65,7 +78,10 @@ function AuthenticatedLayout() {
             <div className="flex flex-col flex-1 overflow-hidden">
               <header className="flex items-center justify-between gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <ThemeToggle />
+                <div className="flex items-center gap-2">
+                  <NotificationBell />
+                  <ThemeToggle />
+                </div>
               </header>
               <main className="flex-1 overflow-auto p-6">
                 <Router />
@@ -79,13 +95,18 @@ function AuthenticatedLayout() {
       <div className="md:hidden flex flex-col h-screen">
         <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <Logo size="md" />
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <ThemeToggle />
+          </div>
         </header>
         <main className="flex-1 overflow-auto p-4 pb-20">
           <Router />
         </main>
         <MobileNav />
       </div>
+
+      <OnboardingTutorial />
     </>
   );
 }
@@ -104,6 +125,7 @@ function LoadingScreen() {
 function PublicRouter() {
   return (
     <Switch>
+      <Route path="/shared/:token" component={SharedSummaryView} />
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />

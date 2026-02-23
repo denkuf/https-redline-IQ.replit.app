@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
@@ -19,15 +19,19 @@ import { TrustSeal } from "@/components/TrustSeal";
 import { WhatIfSimulator } from "@/components/WhatIfSimulator";
 import { ShareSafeSummary } from "@/components/ShareSafeSummary";
 import { VisualRiskHeatmap } from "@/components/VisualRiskHeatmap";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { industryModeLabels, type Contract, type Verdict } from "@shared/schema";
 
 export default function ContractAnalysis() {
   const params = useParams<{ id: string }>();
   const contractId = parseInt(params.id || "0");
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [explanation, setExplanation] = useState("");
   const [isExplaining, setIsExplaining] = useState(false);
+  const [showReupload, setShowReupload] = useState(false);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -50,6 +54,51 @@ export default function ContractAnalysis() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
     },
   });
+
+  const reAnalyzeMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/contracts/${contractId}/compare`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Re-analysis failed");
+      return res.json();
+    },
+    onSuccess: (data: { newContractId?: number; comparison?: any }) => {
+      toast({ title: "Re-analysis complete", description: "New version created and compared." });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
+      navigate(`/compare/${contractId}`);
+    },
+    onError: () => {
+      toast({ title: "Re-analysis failed", description: "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/share`);
+      return res.json();
+    },
+    onSuccess: (data: { shareUrl: string }) => {
+      navigator.clipboard.writeText(window.location.origin + data.shareUrl);
+      toast({ title: "Share link copied!", description: "The link has been copied to your clipboard." });
+    },
+    onError: () => {
+      toast({ title: "Failed to create share link", variant: "destructive" });
+    },
+  });
+
+  const handleReupload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      reAnalyzeMutation.mutate(file);
+      setShowReupload(false);
+    }
+  };
 
   const handleExplainSelection = async (text: string) => {
     setIsExplaining(true);
@@ -118,6 +167,50 @@ export default function ContractAnalysis() {
         </div>
         {!isAnalyzing && analysis && (
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => shareMutation.mutate()}
+              disabled={shareMutation.isPending}
+              data-testid="button-share-contract"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Share</span>
+            </Button>
+            <Link href={`/compare/${contractId}`}>
+              <Button variant="outline" size="sm" data-testid="button-compare-contract">
+                <GitCompare className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Compare</span>
+              </Button>
+            </Link>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReupload(!showReupload)}
+                disabled={reAnalyzeMutation.isPending}
+                data-testid="button-reanalyze"
+              >
+                {reAnalyzeMutation.isPending ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                <span className="hidden sm:inline">Re-analyze</span>
+              </Button>
+              {showReupload && (
+                <div className="absolute right-0 top-full mt-2 z-10 bg-card border rounded-lg p-3 shadow-lg min-w-[200px]">
+                  <p className="text-sm text-muted-foreground mb-2">Upload revised version</p>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt"
+                    onChange={handleReupload}
+                    className="text-sm w-full"
+                    data-testid="input-reupload-file"
+                  />
+                </div>
+              )}
+            </div>
             <ExportButton contract={contract} />
             {analysis.riskFlags?.some(r => r.negotiation) && (
               <Button

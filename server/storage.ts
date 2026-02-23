@@ -12,6 +12,10 @@ import {
   advocateMessages,
   userMemory,
   recurringObligations,
+  notifications,
+  contractFavorites,
+  shareLinks,
+  contractTemplates,
   type Contract, 
   type InsertContract, 
   type AnalysisResult,
@@ -33,6 +37,14 @@ import {
   type InsertUserMemory,
   type RecurringObligation,
   type InsertRecurringObligation,
+  type Notification,
+  type InsertNotification,
+  type ContractFavorite,
+  type InsertContractFavorite,
+  type ShareLink,
+  type InsertShareLink,
+  type ContractTemplate,
+  type InsertContractTemplate,
 } from "@shared/schema";
 import { eq, desc, like, sql, and, gte, lte, or } from "drizzle-orm";
 
@@ -98,6 +110,30 @@ export interface IStorage {
   deleteRecurringObligation(id: number, userId: string): Promise<void>;
   getGuardianAlerts(userId: string): Promise<{ urgent: any[]; dueSoon: any[]; safe: any[] }>;
   
+  // V1 - Notifications
+  getNotifications(userId: string, limit?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: number, userId: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+
+  // V1 - Contract favorites
+  getFavorites(userId: string): Promise<ContractFavorite[]>;
+  isFavorite(userId: string, contractId: number): Promise<boolean>;
+  addFavorite(favorite: InsertContractFavorite): Promise<ContractFavorite>;
+  removeFavorite(userId: string, contractId: number): Promise<void>;
+
+  // V1 - Share links
+  createShareLink(link: InsertShareLink): Promise<ShareLink>;
+  getShareLinkByToken(token: string): Promise<ShareLink | undefined>;
+  getShareLinks(userId: string): Promise<ShareLink[]>;
+  incrementShareLinkViews(token: string): Promise<void>;
+
+  // V1 - Contract templates
+  getTemplates(): Promise<ContractTemplate[]>;
+  getTemplate(id: number): Promise<ContractTemplate | undefined>;
+  createTemplate(template: InsertContractTemplate): Promise<ContractTemplate>;
+
   // Delete all user data (for account deletion)
   deleteAllUserData(userId: string): Promise<void>;
 }
@@ -487,8 +523,107 @@ class DbStorage implements IStorage {
     return { urgent, dueSoon, safe };
   }
 
+  // V1 - Notifications
+  async getNotifications(userId: string, limit: number = 50): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return result[0]?.count || 0;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [created] = await db.insert(notifications).values(notification).returning();
+    return created;
+  }
+
+  async markNotificationRead(id: number, userId: string): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, userId));
+  }
+
+  // V1 - Contract favorites
+  async getFavorites(userId: string): Promise<ContractFavorite[]> {
+    return db.select().from(contractFavorites)
+      .where(eq(contractFavorites.userId, userId))
+      .orderBy(desc(contractFavorites.createdAt));
+  }
+
+  async isFavorite(userId: string, contractId: number): Promise<boolean> {
+    const [found] = await db.select().from(contractFavorites)
+      .where(and(eq(contractFavorites.userId, userId), eq(contractFavorites.contractId, contractId)));
+    return !!found;
+  }
+
+  async addFavorite(favorite: InsertContractFavorite): Promise<ContractFavorite> {
+    const [created] = await db.insert(contractFavorites).values(favorite).returning();
+    return created;
+  }
+
+  async removeFavorite(userId: string, contractId: number): Promise<void> {
+    await db.delete(contractFavorites)
+      .where(and(eq(contractFavorites.userId, userId), eq(contractFavorites.contractId, contractId)));
+  }
+
+  // V1 - Share links
+  async createShareLink(link: InsertShareLink): Promise<ShareLink> {
+    const [created] = await db.insert(shareLinks).values(link).returning();
+    return created;
+  }
+
+  async getShareLinkByToken(token: string): Promise<ShareLink | undefined> {
+    const [found] = await db.select().from(shareLinks)
+      .where(eq(shareLinks.token, token));
+    return found;
+  }
+
+  async getShareLinks(userId: string): Promise<ShareLink[]> {
+    return db.select().from(shareLinks)
+      .where(eq(shareLinks.userId, userId))
+      .orderBy(desc(shareLinks.createdAt));
+  }
+
+  async incrementShareLinkViews(token: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({ viewCount: sql`${shareLinks.viewCount} + 1` })
+      .where(eq(shareLinks.token, token));
+  }
+
+  // V1 - Contract templates
+  async getTemplates(): Promise<ContractTemplate[]> {
+    return db.select().from(contractTemplates)
+      .orderBy(contractTemplates.category, contractTemplates.name);
+  }
+
+  async getTemplate(id: number): Promise<ContractTemplate | undefined> {
+    const [found] = await db.select().from(contractTemplates)
+      .where(eq(contractTemplates.id, id));
+    return found;
+  }
+
+  async createTemplate(template: InsertContractTemplate): Promise<ContractTemplate> {
+    const [created] = await db.insert(contractTemplates).values(template).returning();
+    return created;
+  }
+
   async deleteAllUserData(userId: string): Promise<void> {
     await db.transaction(async (tx) => {
+      await tx.delete(notifications).where(eq(notifications.userId, userId));
+      await tx.delete(contractFavorites).where(eq(contractFavorites.userId, userId));
+      await tx.delete(shareLinks).where(eq(shareLinks.userId, userId));
       await tx.delete(advocateMessages).where(eq(advocateMessages.userId, userId));
       await tx.delete(userMemory).where(eq(userMemory.userId, userId));
       await tx.delete(recurringObligations).where(eq(recurringObligations.userId, userId));

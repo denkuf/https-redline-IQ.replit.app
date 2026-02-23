@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, CalendarClock, Camera, Bot } from "lucide-react";
+import { FileUp, FileText, History, Settings, LayoutDashboard, Zap, MessageSquare, FileCheck, AlertOctagon, LogOut, User, CalendarClock, Camera, Bot, BookOpen, Bell, GitCompare, BarChart3 } from "lucide-react";
 import { Disclaimer } from "./Disclaimer";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,13 @@ const monitorItems = [
   { title: "Command Center", url: "/dashboard", icon: LayoutDashboard },
   { title: "Signed Contracts", url: "/signed-contracts", icon: FileCheck },
   { title: "Obligations", url: "/recurring-obligations", icon: CalendarClock },
+  { title: "Weekly Digest", url: "/weekly-digest", icon: BarChart3 },
+  { title: "Notifications", url: "/notifications", icon: Bell },
 ];
 
 const helpItems = [
+  { title: "Template Library", url: "/templates", icon: BookOpen },
+  { title: "Compare Contracts", url: "/compare", icon: GitCompare },
   { title: "Advocate Chat", url: "/advocate", icon: Bot },
   { title: "Negotiation Coach", url: "/negotiation-coach", icon: MessageSquare },
   { title: "Emergency Mode", url: "/emergency", icon: AlertOctagon },

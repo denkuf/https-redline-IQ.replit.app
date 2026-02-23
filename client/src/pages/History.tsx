@@ -20,21 +20,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { ContractCard } from "@/components/ContractCard";
-import { Search, Plus, FileX } from "lucide-react";
+import { Search, Plus, FileX, Star } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Contract } from "@shared/schema";
+import type { Contract, ContractFavorite } from "@shared/schema";
 
 export default function History() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("all");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const { data: contracts, isLoading } = useQuery<Contract[]>({
     queryKey: ["/api/contracts"],
+  });
+
+  const { data: favorites = [] } = useQuery<ContractFavorite[]>({
+    queryKey: ["/api/favorites"],
   });
 
   const deleteMutation = useMutation({
@@ -58,10 +65,36 @@ export default function History() {
     },
   });
 
+  const favoriteMutation = useMutation({
+    mutationFn: async ({ contractId, isFavorited }: { contractId: number; isFavorited: boolean }) => {
+      if (isFavorited) {
+        await apiRequest("DELETE", `/api/favorites/${contractId}`);
+      } else {
+        await apiRequest("POST", "/api/favorites", { contractId });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to update favorite",
+        description: "Unable to update favorite status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isFavorited = (contractId: number) => 
+    favorites.some((fav) => fav.contractId === contractId);
+
+  const favoriteContractIds = new Set(favorites.map((fav) => fav.contractId));
+
   const filteredContracts = contracts?.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === "all" || c.type === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesTab = activeTab === "all" || favoriteContractIds.has(c.id);
+    return matchesSearch && matchesType && matchesTab;
   }) || [];
 
   const contractTypes = [...new Set(contracts?.map((c) => c.type).filter(Boolean) || [])];
@@ -82,6 +115,20 @@ export default function History() {
           </Button>
         </Link>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList data-testid="tabs-favorites">
+          <TabsTrigger value="all" data-testid="tab-all-contracts">
+            All Contracts
+          </TabsTrigger>
+          <TabsTrigger value="favorites" data-testid="tab-favorites">
+            Favorites
+            <Badge variant="outline" className="ml-2" data-testid="badge-favorites-count">
+              {favorites.length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="relative flex-1 min-w-[200px]">
@@ -140,11 +187,27 @@ export default function History() {
       ) : (
         <div className="space-y-4">
           {filteredContracts.map((contract) => (
-            <ContractCard
-              key={contract.id}
-              contract={contract}
-              onDelete={(id) => setDeleteId(id)}
-            />
+            <div key={contract.id} className="flex gap-2 items-start">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => favoriteMutation.mutate({ contractId: contract.id, isFavorited: isFavorited(contract.id) })}
+                data-testid={`button-favorite-${contract.id}`}
+                className="mt-1 shrink-0"
+              >
+                <Star
+                  className="h-5 w-5"
+                  fill={isFavorited(contract.id) ? "currentColor" : "none"}
+                  strokeWidth={1.5}
+                />
+              </Button>
+              <div className="flex-1 min-w-0">
+                <ContractCard
+                  contract={contract}
+                  onDelete={(id) => setDeleteId(id)}
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}

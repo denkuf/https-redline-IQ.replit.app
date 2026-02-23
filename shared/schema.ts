@@ -345,6 +345,72 @@ export const recurringObligations = pgTable("recurring_obligations", {
 
 export type RecurringObligation = typeof recurringObligations.$inferSelect;
 
+// ============================================
+// V1 Release - Sticky Features
+// ============================================
+
+// In-app notifications
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  relatedId: integer("related_id"),
+  relatedType: text("related_type"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type Notification = typeof notifications.$inferSelect;
+
+// Contract favorites / pinned contracts
+export const contractFavorites = pgTable("contract_favorites", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contractId: integer("contract_id").references(() => contracts.id).notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type ContractFavorite = typeof contractFavorites.$inferSelect;
+
+// Shareable summary links
+export const shareLinks = pgTable("share_links", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contractId: integer("contract_id").references(() => contracts.id).notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  summary: jsonb("summary").$type<{
+    contractName: string;
+    verdict: string;
+    riskScore: number;
+    topRisks: string[];
+    keyPoints: string[];
+    recommendation: string;
+  }>(),
+  expiresAt: timestamp("expires_at"),
+  viewCount: integer("view_count").default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+
+// Contract templates
+export const contractTemplates = pgTable("contract_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  description: text("description").notNull(),
+  content: text("content").notNull(),
+  industryMode: text("industry_mode").default("general"),
+  commonRedFlags: jsonb("common_red_flags").$type<string[]>(),
+  annotations: jsonb("annotations").$type<{ section: string; note: string; riskLevel: string }[]>(),
+  isDefault: boolean("is_default").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+
 // Insert schemas for all tables
 export const insertClausePatternSchema = createInsertSchema(clausePatterns).omit({
   id: true,
@@ -394,3 +460,28 @@ export type InsertNegotiationSession = z.infer<typeof insertNegotiationSessionSc
 export type InsertAdvocateMessage = z.infer<typeof insertAdvocateMessageSchema>;
 export type InsertUserMemory = z.infer<typeof insertUserMemorySchema>;
 export type InsertRecurringObligation = z.infer<typeof insertRecurringObligationSchema>;
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContractFavoriteSchema = createInsertSchema(contractFavorites).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertShareLinkSchema = createInsertSchema(shareLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertContractFavorite = z.infer<typeof insertContractFavoriteSchema>;
+export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
+export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
