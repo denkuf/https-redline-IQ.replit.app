@@ -86,10 +86,12 @@ export default function AdvocateChat() {
 
   return (
     <div className="flex flex-col h-full" data-testid="advocate-chat-page">
-      <div className="flex items-center justify-between gap-2 flex-wrap p-4 border-b sticky top-0 z-50 bg-background">
-        <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold" data-testid="text-advocate-title">Your Advocate</h1>
+      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b sticky top-0 z-50 bg-background/95 backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Scale className="h-4 w-4 text-primary" />
+          </div>
+          <h1 className="text-base font-semibold" data-testid="text-advocate-title">Your Advocate</h1>
         </div>
         <Button
           variant="outline"
@@ -167,10 +169,10 @@ export default function AdvocateChat() {
                     data-testid={`message-bubble-${msg.id}`}
                   >
                     <div
-                      className={`max-w-[85%] sm:max-w-[70%] rounded-md px-4 py-3 ${
+                      className={`max-w-[85%] sm:max-w-[70%] px-4 py-3 ${
                         isUser
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
+                          ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                          : "bg-muted rounded-2xl rounded-bl-md"
                       }`}
                     >
                       <p className="text-sm whitespace-pre-wrap" data-testid={`text-message-content-${msg.id}`}>
@@ -192,7 +194,7 @@ export default function AdvocateChat() {
 
             {sendMutation.isPending && (
               <div className="flex justify-start" data-testid="loading-response">
-                <div className="bg-muted rounded-md px-4 py-3 max-w-[85%] sm:max-w-[70%]">
+                <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%] sm:max-w-[70%]">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Thinking...</span>

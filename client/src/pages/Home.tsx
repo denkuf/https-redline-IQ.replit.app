@@ -94,46 +94,41 @@ export default function Home() {
 
   return (
     <div className="min-h-full flex flex-col">
-      {/* Hero Section */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 md:py-12">
-        {/* Logo & Title - Mobile optimized */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center gap-3 mb-6">
+          <div className="inline-flex items-center justify-center gap-3 mb-5">
             <Logo size="hero" showText={false} iconOnly />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2.5">
             Know What You're Signing
           </h1>
-          <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto">
+          <p className="text-muted-foreground text-sm md:text-base max-w-md mx-auto leading-relaxed">
             Your digital lawyer in your pocket. Get instant verdicts, plain-English analysis, and negotiation scripts.
           </p>
         </div>
 
-        {/* Feature Pills - Horizontal scrollable on mobile */}
         <div className="w-full max-w-lg mb-8 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2 justify-center flex-wrap px-2">
             {features.map((feature, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-secondary/50 border border-border/50 whitespace-nowrap"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-secondary/40 border border-border/30 whitespace-nowrap backdrop-blur-sm transition-colors hover:bg-secondary/60"
                 data-testid={`feature-pill-${i}`}
               >
-                <feature.icon className="h-4 w-4 text-primary flex-shrink-0" />
+                <feature.icon className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 <span className="text-xs font-medium">{feature.title}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Upload Section - Ultra modern card */}
         <div className="w-full max-w-lg px-2">
           <FileUpload onUpload={handleUpload} isLoading={uploadMutation.isPending} />
         </div>
 
-        {/* Trust indicator */}
-        <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-8 flex items-center gap-2 text-[11px] text-muted-foreground/70">
           <span>Powered by</span>
-          <Logo size="md" />
+          <Logo size="sm" />
         </div>
       </div>
     </div>

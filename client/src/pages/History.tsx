@@ -103,13 +103,13 @@ export default function History() {
     <div className="max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold">My Contracts</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight">My Contracts</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {contracts?.length || 0} contract{contracts?.length !== 1 ? "s" : ""} analyzed
           </p>
         </div>
         <Link href="/">
-          <Button data-testid="button-new-contract">
+          <Button className="rounded-lg" data-testid="button-new-contract">
             <Plus className="h-4 w-4 mr-2" />
             New Contract
           </Button>

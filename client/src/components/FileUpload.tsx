@@ -87,7 +87,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 border-border/40">
       <div className="mb-6">
         <IndustryModeSelector value={industryMode} onChange={setIndustryMode} disabled={isLoading} />
       </div>
@@ -244,7 +244,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6">
         <Button
           onClick={handleSubmit}
           disabled={
@@ -252,6 +252,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
             ((activeTab === "upload" || activeTab === "camera") && !selectedFile) ||
             (activeTab === "paste" && !pastedText.trim())
           }
+          className="w-full rounded-lg h-11"
           data-testid="button-analyze"
         >
           {isLoading ? (

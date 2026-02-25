@@ -63,14 +63,14 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/3 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md border-border/40 shadow-xl shadow-primary/5">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-5">
             <Logo size="hero" showText={false} iconOnly />
           </div>
-          <CardTitle className="text-2xl">Create Your Account</CardTitle>
-          <CardDescription>Join <Logo size="sm" /> and start analyzing contracts</CardDescription>
+          <CardTitle className="text-2xl tracking-tight">Create Your Account</CardTitle>
+          <CardDescription className="mt-1.5">Join <Logo size="sm" /> and start analyzing contracts</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -26,53 +26,53 @@ export function ContractCard({ contract, onDelete }: ContractCardProps) {
   const highRiskCount = contract.analysis?.riskFlags?.filter((r) => r.severity === "High").length || 0;
 
   return (
-    <Card className="hover-elevate transition-all" data-testid={`contract-card-${contract.id}`}>
+    <Card className="hover-elevate transition-all duration-200 border-border/40" data-testid={`contract-card-${contract.id}`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-md bg-primary/10 shrink-0">
-            <FileText className="h-6 w-6 text-primary" />
+          <div className="p-3 rounded-xl bg-primary/10 shrink-0">
+            <FileText className="h-5 w-5 text-primary" />
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="font-medium truncate" data-testid={`contract-name-${contract.id}`}>
+                <h3 className="font-semibold text-sm truncate" data-testid={`contract-name-${contract.id}`}>
                   {contract.name}
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {contract.type !== "unknown" ? contract.type : "Contract"}
                 </p>
               </div>
-              <Badge className={status.color}>
+              <Badge className={`${status.color} text-[10px]`}>
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {status.label}
               </Badge>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 mt-3">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-3 mt-2.5">
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatDistanceToNow(new Date(contract.createdAt), { addSuffix: true })}
               </span>
               
               {contract.status === "completed" && riskCount > 0 && (
-                <span className="text-xs flex items-center gap-1">
+                <span className="text-[11px] flex items-center gap-1">
                   <AlertTriangle className={`h-3 w-3 ${highRiskCount > 0 ? "text-red-500" : "text-amber-500"}`} />
                   {riskCount} risk{riskCount !== 1 ? "s" : ""} found
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 mt-3.5">
               <Link href={`/contract/${contract.id}`}>
                 <Button size="sm" data-testid={`button-view-${contract.id}`}>
                   View Analysis
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  <ChevronRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </Link>
               {onDelete && (
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="ghost"
                   onClick={() => onDelete(contract.id)}
                   data-testid={`button-delete-${contract.id}`}

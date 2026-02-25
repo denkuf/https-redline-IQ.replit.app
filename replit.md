@@ -8,9 +8,11 @@ Redline IQ is a contract analysis web application designed to empower individual
 - All risk flags must be grounded with exact clause quotes (minimum 10 characters)
 - Confidence scores are validated (0.0 - 1.0)
 - Risk flags without proper quotes are filtered out server-side
-- This is informational, NOT legal advice (disclaimer required)
+- This is informational, NOT legal advice (disclaimer required and visible on mobile)
 - Risk score guidelines: 0-25 Safe, 26-50 Caution, 51-75 High Risk, 76-100 Do Not Sign
 - Industry playbooks provide mode-specific red flags and "commonly seen vs unusual" guidance
+- Legal disclaimer visible: Desktop sidebar footer + Mobile compact strip above bottom nav
+- UI polished with gradient accents, rounded elements, backdrop-blur effects, smooth scrolling, and custom scrollbar styling
 
 ### System Architecture
 
