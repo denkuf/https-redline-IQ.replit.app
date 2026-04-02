@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Loader2, Copy, Check, Lightbulb, Upload, X, FileText } from "lucide-react";
+import { MessageSquare, Loader2, Copy, Check, Lightbulb, Upload, X, FileText, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 interface NegotiationResult {
@@ -18,6 +19,7 @@ export default function NegotiationCoach() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [, setLocation] = useLocation();
 
   const coachMutation = useMutation({
     mutationFn: async ({ text, file }: { text: string; file: File | null }) => {
@@ -75,6 +77,15 @@ export default function NegotiationCoach() {
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 -ml-1 shrink-0"
+            onClick={() => setLocation("/dashboard")}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
             <MessageSquare className="h-5 w-5 text-primary" />
           </div>

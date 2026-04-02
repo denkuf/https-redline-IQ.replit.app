@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Image, X, Settings2, Camera, Info, Plus, AlertTriangle } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Upload, FileText, Image, X, Settings2, Camera, Info, Plus, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { IndustryModeSelector } from "./IndustryModeSelector";
 import { RiskPreferencesForm } from "./RiskPreferencesForm";
 import { JurisdictionSituationProfile, formatJurisdiction, type SituationProfile } from "./JurisdictionSituationProfile";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadProps {
   onUpload: (
@@ -47,6 +48,7 @@ function formatBytes(bytes: number): string {
 const defaultSituation: SituationProfile = { role: "", leverage: "", concern: "" };
 
 export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
+  const { toast } = useToast();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [cameraFile, setCameraFile] = useState<File | null>(null);
@@ -63,7 +65,21 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    return () => {
+      if (cameraPreviewUrl) URL.revokeObjectURL(cameraPreviewUrl);
+    };
+  }, [cameraPreviewUrl]);
+
   const addFiles = useCallback((incoming: File[]) => {
+    const rejected = incoming.filter(f => !Object.keys(ACCEPTED_TYPES).includes(f.type));
+    if (rejected.length > 0) {
+      toast({
+        title: "Unsupported file type",
+        description: `${rejected.map(f => f.name).join(", ")} — please upload PDF, DOC, DOCX, JPG, or PNG files.`,
+        variant: "destructive",
+      });
+    }
     setSelectedFiles(prev => {
       const existing = new Set(prev.map(f => f.name + f.size));
       const fresh = incoming.filter(f => {
@@ -72,7 +88,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
       });
       return [...prev, ...fresh].slice(0, 5);
     });
-  }, []);
+  }, [toast]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -108,6 +124,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
     if (cameraPreviewUrl) URL.revokeObjectURL(cameraPreviewUrl);
     setCameraFile(null);
     setCameraPreviewUrl(null);
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   const removeFile = (index: number) => {
@@ -138,6 +155,16 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
     (activeTab === "camera" && cameraFile !== null) ||
     (activeTab === "paste" && pastedText.trim().length > 0)
   );
+
+  const getDisabledHint = () => {
+    if (isLoading) return null;
+    if (activeTab === "upload" && selectedFiles.length === 0) return "Add at least one file to continue";
+    if (activeTab === "camera" && !cameraFile) return "Take a photo of your contract to continue";
+    if (activeTab === "paste" && !pastedText.trim()) return "Paste your contract text to continue";
+    return null;
+  };
+
+  const disabledHint = getDisabledHint();
 
   return (
     <Card className="p-6 border-border/40">
@@ -274,6 +301,17 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
                   <p className="text-sm font-medium truncate">{cameraFile.name}</p>
                   <p className="text-xs text-muted-foreground">{formatBytes(cameraFile.size)}</p>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => { clearCameraFile(); setTimeout(() => cameraInputRef.current?.click(), 50); }}
+                  disabled={isLoading}
+                  data-testid="button-retake-photo"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Retake
+                </Button>
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
@@ -285,15 +323,6 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
               className="relative border-2 border-dashed rounded-lg p-12 transition-colors border-primary/50 bg-primary/5 cursor-pointer"
               onClick={() => cameraInputRef.current?.click()}
             >
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleCameraChange}
-                className="hidden"
-                data-testid="input-camera-capture"
-              />
               <div className="flex flex-col items-center gap-4 text-center">
                 <div className="p-4 rounded-full bg-primary/10">
                   <Camera className="h-8 w-8 text-primary" />
@@ -308,6 +337,15 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
               </div>
             </div>
           )}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleCameraChange}
+            className="hidden"
+            data-testid="input-camera-capture"
+          />
         </TabsContent>
 
         <TabsContent value="paste" className="space-y-4">
@@ -368,7 +406,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-1.5">
         <Button
           onClick={handleSubmit}
           disabled={!canSubmit}
@@ -384,6 +422,11 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
             "Analyze Contract"
           )}
         </Button>
+        {disabledHint && !isLoading && (
+          <p className="text-xs text-muted-foreground text-center" data-testid="text-submit-hint">
+            {disabledHint}
+          </p>
+        )}
       </div>
     </Card>
   );

@@ -26,7 +26,7 @@ Redline IQ is a contract analysis web application designed to empower individual
     -   Ultra-modern mobile-first design with a focus on clarity and ease of use.
     -   Responsive layout: Sidebar on desktop (768px+), bottom tab bar on mobile for navigation (Home, Scan, Chat, History, More).
     -   Visual risk heatmap using color-coded sections (Safe/Caution/Danger).
-    -   Custom RedlineIQ branded authentication pages (Login, Register) with secure bcryptjs password hashing (12 salt rounds).
+    -   Custom RedlineIQ branded authentication pages (Login, Register) with secure bcryptjs password hashing (12 salt rounds). Users auto-verify on registration (no email service required). Password show/hide toggles on both pages.
     -   User data isolation ensuring users only access their own data.
 
 **Backend (Express + TypeScript)**

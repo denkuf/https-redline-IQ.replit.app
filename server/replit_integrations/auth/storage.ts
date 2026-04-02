@@ -44,7 +44,7 @@ class AuthStorage implements IAuthStorage {
         firstName: userData.firstName,
         lastName: userData.lastName,
         passwordHash,
-        emailVerified: false,
+        emailVerified: true,
         verificationCode: code,
         verificationCodeExpiresAt: expiresAt,
       })

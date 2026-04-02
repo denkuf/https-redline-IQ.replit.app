@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { AlertOctagon, Loader2, FileText, ArrowRight, Copy, Check, Upload, X } from "lucide-react";
+import { AlertOctagon, Loader2, FileText, ArrowRight, Copy, Check, Upload, X, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 interface EmergencyResult {
@@ -20,6 +21,7 @@ export default function Emergency() {
   const [copied, setCopied] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [, setLocation] = useLocation();
 
   const emergencyMutation = useMutation({
     mutationFn: async ({ text, file }: { text: string; file: File | null }) => {
@@ -66,6 +68,15 @@ export default function Emergency() {
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 -ml-1 shrink-0"
+            onClick={() => setLocation("/dashboard")}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
             <AlertOctagon className="h-5 w-5 text-destructive" />
           </div>

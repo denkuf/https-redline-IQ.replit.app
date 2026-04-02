@@ -56,8 +56,7 @@ export function registerAuthRoutes(app: Express): void {
         email: user.email, 
         firstName: user.firstName, 
         lastName: user.lastName,
-        emailVerified: false,
-        verificationCode: user.verificationCode,
+        emailVerified: true,
       });
     } catch (error) {
       console.error("Registration error:", error);
@@ -111,7 +110,6 @@ export function registerAuthRoutes(app: Express): void {
       
       res.json({ 
         message: "Verification code sent",
-        verificationCode: code,
       });
     } catch (error) {
       console.error("Resend code error:", error);
@@ -149,7 +147,6 @@ export function registerAuthRoutes(app: Express): void {
           firstName: user.firstName, 
           lastName: user.lastName,
           emailVerified: false,
-          verificationCode: code,
         });
       }
 

@@ -5,13 +5,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Trash2, MessageSquarePlus, Scale, Loader2, ShieldCheck, HelpCircle, AlertTriangle } from "lucide-react";
+import { Send, Trash2, MessageSquarePlus, Scale, Loader2, ShieldCheck, HelpCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import type { AdvocateMessage } from "@shared/schema";
 
 export default function AdvocateChat() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: messages = [], isLoading } = useQuery<AdvocateMessage[]>({
     queryKey: ["/api/advocate-chat"],
@@ -88,6 +90,15 @@ export default function AdvocateChat() {
     <div className="flex flex-col h-full" data-testid="advocate-chat-page">
       <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b sticky top-0 z-50 bg-background/95 backdrop-blur-md">
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 -ml-1 hidden md:flex"
+            onClick={() => setLocation("/dashboard")}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <Scale className="h-4 w-4 text-primary" />
           </div>
