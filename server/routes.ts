@@ -256,11 +256,16 @@ export async function registerRoutes(
       const overrideSituation = req.body?.situation && typeof req.body.situation === "object"
         ? req.body.situation as { role?: string; leverage?: string; concern?: string }
         : undefined;
-      const overrideRiskPreferences: RiskPreferences | undefined = req.body?.riskPreferences
-        ? (typeof req.body.riskPreferences === "string"
-          ? JSON.parse(req.body.riskPreferences)
-          : req.body.riskPreferences)
-        : undefined;
+      let overrideRiskPreferences: RiskPreferences | undefined;
+      if (req.body?.riskPreferences) {
+        try {
+          overrideRiskPreferences = typeof req.body.riskPreferences === "string"
+            ? JSON.parse(req.body.riskPreferences)
+            : req.body.riskPreferences;
+        } catch {
+          return res.status(400).json({ message: "Invalid riskPreferences: must be a valid JSON object" });
+        }
+      }
 
       // Fall back to stored values
       const effectiveJurisdiction = overrideJurisdiction ?? (contract.jurisdiction || undefined);

@@ -345,6 +345,42 @@ export default function ContractAnalysis() {
         </div>
       </div>
 
+      {!isAnalyzing && !staleBannerDismissed && isAnalysisStale(contract.analysedAt) && contract.extractedText && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 mb-4" data-testid="banner-stale-analysis">
+          <Clock className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Analysis may be outdated</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              {contract.analysedAt
+                ? `This analysis is ${getAnalysisAgeLabel(contract.analysedAt)} old.`
+                : "This contract has never been analysed."}{" "}
+              Laws, regulations, and market norms can change — a fresh review may surface new risks.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+              onClick={() => refreshAnalysisMutation.mutate({})}
+              disabled={refreshAnalysisMutation.isPending}
+              data-testid="button-stale-reanalyze"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
+              Re-analyse now
+            </Button>
+            <button
+              onClick={() => setStaleBannerDismissed(true)}
+              className="text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 p-1"
+              data-testid="button-dismiss-stale-banner"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isAnalyzing ? (
         <AnalysisLoading />
       ) : !analysis ? (
@@ -353,42 +389,6 @@ export default function ContractAnalysis() {
         </div>
       ) : (
         <div className="space-y-6">
-          {!staleBannerDismissed && isAnalysisStale(contract.analysedAt) && contract.extractedText && (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3" data-testid="banner-stale-analysis">
-              <Clock className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Analysis may be outdated</p>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                  {contract.analysedAt
-                    ? `This analysis is ${getAnalysisAgeLabel(contract.analysedAt)} old.`
-                    : "This contract has never been analysed."}{" "}
-                  Laws, regulations, and market norms can change — a fresh review may surface new risks.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                  onClick={() => refreshAnalysisMutation.mutate({})}
-                  disabled={refreshAnalysisMutation.isPending}
-                  data-testid="button-stale-reanalyze"
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
-                  Re-analyse now
-                </Button>
-                <button
-                  onClick={() => setStaleBannerDismissed(true)}
-                  className="text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 p-1"
-                  data-testid="button-dismiss-stale-banner"
-                  aria-label="Dismiss"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
           {hasQuestions && analysis.clarifyingQuestions && (
             <ClarifyingQuestions
               questions={analysis.clarifyingQuestions.filter((q) => !q.answer)}
