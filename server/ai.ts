@@ -571,30 +571,27 @@ export async function analyzeContractChunked(
   if (result.verdict) {
     const { confirmedScore, adjustmentReason, scoreUncertain } = await validateAndAdjustScore(contractText, result);
     const scoreChanged = confirmedScore !== result.verdict.riskScore;
-    if (scoreChanged || scoreUncertain) {
-      if (scoreChanged) {
-        console.log(`Validation pass adjusted score: ${result.verdict.riskScore} → ${confirmedScore}. Reason: ${adjustmentReason}`);
-      }
-      if (scoreUncertain) {
-        console.log(`Validation pass flagged score as uncertain.`);
-      }
-      const verdictLabel: Verdict["verdict"] =
-        confirmedScore >= 76 ? "Do Not Sign" :
-        confirmedScore >= 51 ? "High Risk" :
-        confirmedScore >= 26 ? "Caution" : "Safe";
-      let reasoning = result.verdict.reasoning;
-      if (adjustmentReason) reasoning = `${reasoning} [Score adjusted: ${adjustmentReason}]`;
-      if (scoreUncertain) reasoning = `${reasoning} [Score uncertain: contract may be incomplete or highly ambiguous]`;
-      result = {
-        ...result,
-        verdict: {
-          ...result.verdict,
-          riskScore: confirmedScore,
-          verdict: scoreChanged ? verdictLabel : result.verdict.verdict,
-          reasoning,
-        },
-      };
+    if (scoreChanged) {
+      console.log(`Validation pass adjusted score: ${result.verdict.riskScore} → ${confirmedScore}. Reason: ${adjustmentReason}`);
     }
+    if (scoreUncertain) {
+      console.log(`Validation pass flagged score as uncertain.`);
+    }
+    const verdictLabel: Verdict["verdict"] =
+      confirmedScore >= 76 ? "Do Not Sign" :
+      confirmedScore >= 51 ? "High Risk" :
+      confirmedScore >= 26 ? "Caution" : "Safe";
+    result = {
+      ...result,
+      verdict: {
+        ...result.verdict,
+        riskScore: confirmedScore,
+        verdict: scoreChanged ? verdictLabel : result.verdict.verdict,
+        // Store validation metadata as structured fields (not embedded in reasoning)
+        scoreAdjustmentReason: adjustmentReason,
+        scoreUncertain,
+      },
+    };
   }
 
   return result;

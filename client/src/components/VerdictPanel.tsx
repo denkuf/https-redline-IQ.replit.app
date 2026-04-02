@@ -9,12 +9,10 @@ interface VerdictPanelProps {
 }
 
 export function VerdictPanel({ verdict }: VerdictPanelProps) {
-  // Parse annotation tags embedded in reasoning by the validation pass
-  const wasAdjusted = verdict.reasoning?.includes("[Score adjusted:");
-  const isUncertain = verdict.reasoning?.includes("[Score uncertain:");
-  const adjustmentNote = wasAdjusted
-    ? verdict.reasoning.match(/\[Score adjusted: ([^\]]+)\]/)?.[1] ?? null
-    : null;
+  // Read structured validation-pass metadata from dedicated fields
+  const wasAdjusted = !!verdict.scoreAdjustmentReason;
+  const isUncertain = verdict.scoreUncertain === true;
+  const adjustmentNote = verdict.scoreAdjustmentReason ?? null;
 
   const getVerdictConfig = () => {
     switch (verdict.verdict) {
@@ -69,11 +67,7 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
   const config = getVerdictConfig();
   const Icon = config.icon;
 
-  // Clean reasoning text — strip annotation tags before display
-  const cleanReasoning = verdict.reasoning
-    ?.replace(/\s*\[Score adjusted:[^\]]+\]/g, "")
-    .replace(/\s*\[Score uncertain:[^\]]+\]/g, "")
-    .trim();
+  const cleanReasoning = verdict.reasoning?.trim();
 
   return (
     <Card className={`${config.bgColor} ${config.borderColor} border-2`} data-testid="verdict-panel">

@@ -98,6 +98,9 @@ export const verdictSchema = z.object({
   })).max(3),
   negotiationPriorities: z.array(z.string()).max(3),
   reasoning: z.string(),
+  // Validation pass metadata (set by secondary AI review)
+  scoreAdjustmentReason: z.string().nullable().optional(),
+  scoreUncertain: z.boolean().optional(),
 });
 
 export type Verdict = z.infer<typeof verdictSchema>;
