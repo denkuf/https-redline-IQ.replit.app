@@ -53,6 +53,9 @@ export default function ContractAnalysis() {
   const [isExplaining, setIsExplaining] = useState(false);
   const [showReupload, setShowReupload] = useState(false);
   const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
+  const [showRefreshPanel, setShowRefreshPanel] = useState(false);
+  const [refreshJurisdiction, setRefreshJurisdiction] = useState("");
+  const [refreshContext, setRefreshContext] = useState("");
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -103,13 +106,19 @@ export default function ContractAnalysis() {
   });
 
   const refreshAnalysisMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/contracts/${contractId}/reanalyze`);
+    mutationFn: async (opts?: { jurisdiction?: string; context?: string }) => {
+      const body: Record<string, string> = {};
+      if (opts?.jurisdiction?.trim()) body.jurisdiction = opts.jurisdiction.trim();
+      if (opts?.context?.trim()) body.context = opts.context.trim();
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/reanalyze`, body);
       return res.json();
     },
     onSuccess: () => {
       toast({ title: "Re-analysis started", description: "The AI is reviewing your contract again. Results will update shortly." });
       setStaleBannerDismissed(true);
+      setShowRefreshPanel(false);
+      setRefreshJurisdiction("");
+      setRefreshContext("");
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
     },
     onError: () => {
@@ -234,17 +243,59 @@ export default function ContractAnalysis() {
                 <span className="hidden sm:inline">Compare</span>
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refreshAnalysisMutation.mutate()}
-              disabled={refreshAnalysisMutation.isPending}
-              data-testid="button-refresh-analysis"
-              title="Re-run AI analysis on the stored contract text"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh Analysis</span>
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRefreshPanel(!showRefreshPanel)}
+                disabled={refreshAnalysisMutation.isPending}
+                data-testid="button-refresh-analysis"
+                title="Re-run AI analysis on the stored contract text"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh Analysis</span>
+              </Button>
+              {showRefreshPanel && (
+                <div className="absolute right-0 top-full mt-2 z-10 bg-card border rounded-lg p-3 shadow-lg w-72">
+                  <p className="text-sm font-medium mb-1">Refresh AI Analysis</p>
+                  <p className="text-xs text-muted-foreground mb-3">Optionally update context before re-running. Stored risk preferences are used automatically.</p>
+                  <div className="space-y-2 mb-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Override jurisdiction (optional)</label>
+                      <input
+                        type="text"
+                        value={refreshJurisdiction}
+                        onChange={(e) => setRefreshJurisdiction(e.target.value)}
+                        placeholder={contract?.jurisdiction || "e.g. California, US"}
+                        className="w-full text-sm rounded border border-input bg-background px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
+                        data-testid="input-refresh-jurisdiction"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Additional context (optional)</label>
+                      <textarea
+                        value={refreshContext}
+                        onChange={(e) => setRefreshContext(e.target.value)}
+                        placeholder="e.g. I'm the contractor, concerned about non-compete clauses"
+                        className="w-full text-sm rounded border border-input bg-background px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                        rows={2}
+                        data-testid="input-refresh-context"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => refreshAnalysisMutation.mutate({ jurisdiction: refreshJurisdiction, context: refreshContext })}
+                    disabled={refreshAnalysisMutation.isPending}
+                    data-testid="button-confirm-refresh"
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-2 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
+                    Run Analysis
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="relative">
               <Button
                 variant="outline"
@@ -315,7 +366,7 @@ export default function ContractAnalysis() {
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                  onClick={() => refreshAnalysisMutation.mutate()}
+                  onClick={() => refreshAnalysisMutation.mutate({})}
                   disabled={refreshAnalysisMutation.isPending}
                   data-testid="button-stale-reanalyze"
                 >

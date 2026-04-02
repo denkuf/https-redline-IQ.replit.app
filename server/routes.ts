@@ -231,6 +231,8 @@ export async function registerRoutes(
   });
 
   // Refresh analysis on existing contract (same text, new AI run) — does NOT create a new record
+  // Accepts optional overrides: context, jurisdiction, riskPreferences, situation
+  // Falls back to stored values when overrides are not provided
   app.post("/api/contracts/:id/reanalyze", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -244,24 +246,58 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No contract text stored to re-analyse" });
       }
 
+      // Merge: request body overrides take precedence over stored values
+      const overrideContext = req.body?.context && typeof req.body.context === "string"
+        ? req.body.context.trim() : undefined;
+      const overrideJurisdiction = req.body?.jurisdiction && typeof req.body.jurisdiction === "string"
+        ? req.body.jurisdiction.trim() : undefined;
+      const overrideSituation = req.body?.situation && typeof req.body.situation === "object"
+        ? req.body.situation as { role?: string; leverage?: string; concern?: string }
+        : undefined;
+      const overrideRiskPreferences: RiskPreferences | undefined = req.body?.riskPreferences
+        ? (typeof req.body.riskPreferences === "string"
+          ? JSON.parse(req.body.riskPreferences)
+          : req.body.riskPreferences)
+        : undefined;
+
+      // Fall back to stored values
+      const effectiveJurisdiction = overrideJurisdiction ?? (contract.jurisdiction || undefined);
+      const effectiveRiskPreferences: RiskPreferences | undefined =
+        overrideRiskPreferences ?? (contract.riskPreferences as RiskPreferences | null | undefined) ?? undefined;
+      const industryMode = (contract.industryMode || "general") as IndustryMode;
+
+      // Persist any jurisdiction override back to the contract record
+      if (overrideJurisdiction) {
+        await storage.updateContract(id, userId, { jurisdiction: overrideJurisdiction });
+      }
+
       // Set status to analyzing immediately so frontend can show loading state
       await storage.updateContract(id, userId, { status: "analyzing" });
 
-      const industryMode = (contract.industryMode || "general") as IndustryMode;
-      // Re-use stored jurisdiction if available
+      // Build context block matching the same format used at initial analysis
       const contextParts: string[] = [];
-      if (contract.jurisdiction) {
-        contextParts.push(`[USER SITUATION]\nJurisdiction: ${contract.jurisdiction}`);
+      if (overrideContext) contextParts.push(`[USER CONTEXT]\n${overrideContext}`);
+      if (effectiveJurisdiction || overrideSituation) {
+        const sitLines: string[] = [];
+        if (effectiveJurisdiction) sitLines.push(`Jurisdiction: ${effectiveJurisdiction}`);
+        if (overrideSituation?.role) sitLines.push(`Role: ${overrideSituation.role}`);
+        if (overrideSituation?.leverage) sitLines.push(`Leverage: ${overrideSituation.leverage}`);
+        if (overrideSituation?.concern) sitLines.push(`Top concern: ${overrideSituation.concern}`);
+        contextParts.push(`[USER SITUATION]\n${sitLines.join("\n")}`);
       }
       contextParts.push(`[CONTRACT TEXT]\n${contract.extractedText}`);
       const textForAnalysis = contextParts.join("\n\n");
 
       // Run analysis in background — return immediately so UI can poll
-      analyzeContractChunked(textForAnalysis, industryMode)
+      analyzeContractChunked(textForAnalysis, industryMode, effectiveRiskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(id, result, "completed");
           if (result.contractType) {
             await storage.updateContract(id, userId, { type: result.contractType });
+          }
+          // Persist any updated risk preferences used during this run
+          if (overrideRiskPreferences) {
+            await storage.updateContract(id, userId, { riskPreferences: overrideRiskPreferences });
           }
         })
         .catch(async (error) => {
