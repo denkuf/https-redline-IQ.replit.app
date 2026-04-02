@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Quote, CheckCircle, Info } from "lucide-react";
+import { AlertTriangle, Quote, CheckCircle, Info, AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RiskBadge } from "./RiskBadge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { NegotiationSuggestion } from "./NegotiationSuggestion";
@@ -111,17 +112,31 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
                   <p className="text-sm italic">"{risk.clauseQuote}"</p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">Confidence:</span>
                   <ConfidenceIndicator confidence={risk.confidence} />
+                  {risk.confidence < 0.75 && (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className="text-xs gap-1 cursor-help border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400"
+                            data-testid={`low-confidence-badge-${i}`}
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                            Low confidence
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">
+                            This assessment has lower confidence — the clause may be ambiguous or context-dependent. Consider professional review.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </div>
-
-                {risk.confidence < 0.75 && (
-                  <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2 rounded" data-testid={`low-confidence-note-${i}`}>
-                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>Lower confidence — this clause may be ambiguous or context-dependent. Consider professional review.</span>
-                  </div>
-                )}
 
                 {risk.negotiation && (
                   <NegotiationSuggestion suggestion={risk.negotiation} riskTitle={risk.title} />

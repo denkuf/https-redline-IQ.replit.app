@@ -486,8 +486,8 @@ function mergeAnalysisResults(
 async function validateAndAdjustScore(
   contractText: string,
   result: AnalysisResult & { contractType?: string }
-): Promise<{ confirmedScore: number; adjustmentReason: string | null }> {
-  if (!result.verdict) return { confirmedScore: 0, adjustmentReason: null };
+): Promise<{ confirmedScore: number; adjustmentReason: string | null; scoreUncertain: boolean }> {
+  if (!result.verdict) return { confirmedScore: 0, adjustmentReason: null, scoreUncertain: false };
 
   const topFlagTitles = result.riskFlags
     .slice(0, 3)
@@ -507,13 +507,15 @@ ${preview}
 Task: Review the risk score of ${originalScore}/100. Respond ONLY with JSON:
 {
   "confirmedScore": <integer 0-100>,
-  "adjustmentReason": "<one sentence explaining any change, or null if score is confirmed>"
+  "adjustmentReason": "<one sentence explaining any change, or null if score is confirmed>",
+  "scoreUncertain": <true if the contract is ambiguous or missing key clauses making it hard to score, false otherwise>
 }
 
 Rules:
 - Your confirmedScore must be within ±15 of the original score (${Math.max(0, originalScore - 15)} to ${Math.min(100, originalScore + 15)}).
 - If the score seems accurate, return the same score with adjustmentReason: null.
-- Only adjust if you see a clear mismatch between the risk flags and the score.`;
+- Only adjust if you see a clear mismatch between the risk flags and the score.
+- Set scoreUncertain: true if the contract excerpt is incomplete, highly ambiguous, or missing important clauses needed to assess risk accurately.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -536,10 +538,11 @@ Rules:
     return {
       confirmedScore,
       adjustmentReason: parsed.adjustmentReason || null,
+      scoreUncertain: parsed.scoreUncertain === true,
     };
   } catch (err) {
     console.warn("Validation pass failed, using original score:", err);
-    return { confirmedScore: originalScore, adjustmentReason: null };
+    return { confirmedScore: originalScore, adjustmentReason: null, scoreUncertain: false };
   }
 }
 
@@ -566,22 +569,29 @@ export async function analyzeContractChunked(
 
   // Validation pass: confirm or adjust the risk score with a fast secondary check
   if (result.verdict) {
-    const { confirmedScore, adjustmentReason } = await validateAndAdjustScore(contractText, result);
-    if (confirmedScore !== result.verdict.riskScore) {
-      console.log(`Validation pass adjusted score: ${result.verdict.riskScore} → ${confirmedScore}. Reason: ${adjustmentReason}`);
+    const { confirmedScore, adjustmentReason, scoreUncertain } = await validateAndAdjustScore(contractText, result);
+    const scoreChanged = confirmedScore !== result.verdict.riskScore;
+    if (scoreChanged || scoreUncertain) {
+      if (scoreChanged) {
+        console.log(`Validation pass adjusted score: ${result.verdict.riskScore} → ${confirmedScore}. Reason: ${adjustmentReason}`);
+      }
+      if (scoreUncertain) {
+        console.log(`Validation pass flagged score as uncertain.`);
+      }
       const verdictLabel: Verdict["verdict"] =
         confirmedScore >= 76 ? "Do Not Sign" :
         confirmedScore >= 51 ? "High Risk" :
         confirmedScore >= 26 ? "Caution" : "Safe";
+      let reasoning = result.verdict.reasoning;
+      if (adjustmentReason) reasoning = `${reasoning} [Score adjusted: ${adjustmentReason}]`;
+      if (scoreUncertain) reasoning = `${reasoning} [Score uncertain: contract may be incomplete or highly ambiguous]`;
       result = {
         ...result,
         verdict: {
           ...result.verdict,
           riskScore: confirmedScore,
-          verdict: verdictLabel,
-          reasoning: adjustmentReason
-            ? `${result.verdict.reasoning} [Score adjusted: ${adjustmentReason}]`
-            : result.verdict.reasoning,
+          verdict: scoreChanged ? verdictLabel : result.verdict.verdict,
+          reasoning,
         },
       };
     }
