@@ -527,36 +527,6 @@ export async function registerRoutes(
     }
   });
 
-  // Reanalyze with different industry mode (requires auth)
-  app.post("/api/contracts/:id/reanalyze", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      const userId = getUserId(req);
-      const { industryMode, riskPreferences } = req.body;
-      
-      const contract = await storage.getContract(id, userId);
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
-      }
-
-      await storage.updateContract(id, userId, { status: "analyzing", industryMode });
-
-      // Re-analyze with new mode (chunked to handle long contracts)
-      analyzeContractChunked(contract.extractedText, industryMode as IndustryMode, riskPreferences)
-        .then(async (result) => {
-          await storage.updateContractAnalysis(id, result, "completed");
-        })
-        .catch(async (error) => {
-          console.error("Reanalysis failed:", error);
-          await storage.updateContract(id, userId, { status: "error" });
-        });
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Reanalyze error:", error);
-      res.status(500).json({ message: "Failed to reanalyze contract" });
-    }
-  });
 
   // ============================================
   // V3 - Living Legal Guardian Layer

@@ -143,6 +143,7 @@ export const contracts = pgTable("contracts", {
   parentContractId: integer("parent_contract_id"), // For version comparison
   version: integer("version").default(1),
   analysedAt: timestamp("analysed_at"), // When AI analysis was last run
+  riskPreferences: jsonb("risk_preferences").$type<RiskPreferences | null>(), // Preferences used at analysis time
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
