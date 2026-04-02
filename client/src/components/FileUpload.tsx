@@ -8,10 +8,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IndustryModeSelector } from "./IndustryModeSelector";
 import { RiskPreferencesForm } from "./RiskPreferencesForm";
+import { JurisdictionSituationProfile, formatJurisdiction, type SituationProfile } from "./JurisdictionSituationProfile";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 interface FileUploadProps {
-  onUpload: (files: File[], text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => void;
+  onUpload: (
+    files: File[],
+    text: string | null,
+    industryMode: IndustryMode,
+    riskPreferences?: RiskPreferences,
+    context?: string,
+    jurisdiction?: string,
+    situation?: SituationProfile
+  ) => void;
   isLoading?: boolean;
 }
 
@@ -35,6 +44,8 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
+const defaultSituation: SituationProfile = { role: "", leverage: "", concern: "" };
+
 export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -46,6 +57,9 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const [riskPreferences, setRiskPreferences] = useState<RiskPreferences>(defaultPreferences);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [context, setContext] = useState("");
+  const [country, setCountry] = useState("");
+  const [usState, setUsState] = useState("");
+  const [situation, setSituation] = useState<SituationProfile>(defaultSituation);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -103,12 +117,14 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const handleSubmit = () => {
     const prefs = showAdvanced ? riskPreferences : undefined;
     const ctx = context.trim() || undefined;
+    const jurisdictionStr = formatJurisdiction(country, usState) || undefined;
+    const sit = (situation.role || situation.leverage || situation.concern) ? situation : undefined;
     if (activeTab === "upload" && selectedFiles.length > 0) {
-      onUpload(selectedFiles, null, industryMode, prefs, ctx);
+      onUpload(selectedFiles, null, industryMode, prefs, ctx, jurisdictionStr, sit);
     } else if (activeTab === "camera" && cameraFile) {
-      onUpload([cameraFile], null, industryMode, prefs, ctx);
+      onUpload([cameraFile], null, industryMode, prefs, ctx, jurisdictionStr, sit);
     } else if (activeTab === "paste" && pastedText.trim()) {
-      onUpload([], pastedText.trim(), industryMode, prefs, ctx);
+      onUpload([], pastedText.trim(), industryMode, prefs, ctx, jurisdictionStr, sit);
     }
   };
 
@@ -308,14 +324,26 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-6">
+        <JurisdictionSituationProfile
+          country={country}
+          state={usState}
+          situation={situation}
+          onCountryChange={(v) => { setCountry(v); if (v !== "US") setUsState(""); }}
+          onStateChange={setUsState}
+          onSituationChange={setSituation}
+          disabled={isLoading}
+        />
+      </div>
+
+      <div className="mt-4 space-y-2">
         <Label htmlFor="context-field" className="flex items-center gap-1.5 text-sm font-medium">
-          Your Context
+          Additional Context
           <span className="text-muted-foreground font-normal">(optional)</span>
         </Label>
         <Textarea
           id="context-field"
-          placeholder={`Describe your situation — e.g. "This is a freelance web dev contract from a new client. I'm based in California and want to know if the payment terms and IP clauses are fair."`}
+          placeholder={`Any other details — e.g. "The client is a startup and offered 30-day payment terms. I want to flag any clauses that could delay payment."`}
           value={context}
           onChange={(e) => setContext(e.target.value)}
           className="min-h-[80px] resize-none text-sm"
@@ -324,7 +352,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         />
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          The AI uses this alongside the contract text to give you more relevant, personalised analysis.
+          The AI uses your jurisdiction, situation, and any extra context to give more relevant, personalised analysis.
         </p>
       </div>
 

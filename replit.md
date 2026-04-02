@@ -34,7 +34,7 @@ Redline IQ is a contract analysis web application designed to empower individual
 -   **Database**: PostgreSQL with Drizzle ORM
 -   **Authentication**: Custom email/password authentication system with branded pages and secure session management using `express-session` and `connect-pg-simple`. Protected routes enforce authentication.
 -   **Core Features**:
-    -   **Contract Upload & Analysis**: Supports PDF, DOCX, DOC, and image files (camera capture), with text paste option. Features industry mode selection and optional risk preferences for personalized analysis.
+    -   **Contract Upload & Analysis**: Supports PDF, DOCX, DOC, and image files (camera capture), with text paste option. Features industry mode selection, jurisdiction selector (country + US state), situation profile (role/leverage/top concern), and optional risk preferences for personalized analysis.
     -   **Verdict Engine**: Provides a 0-100 risk score, verdict labels (Safe, Caution, High Risk, Do Not Sign), top 3 risks, and negotiation priorities.
     -   **AI Analysis**: Delivers plain-English summaries, risk flags with exact clause quotes, industry-specific red flags, "commonly seen" vs "unusual" clause tagging, key term extraction, and confidence scores.
     -   **Negotiation Guidance**: Offers explanations of clauses, reasons for risk, suggested changes (plain and formal), and negotiation scripts.

@@ -130,6 +130,7 @@ export const contracts = pgTable("contracts", {
   name: text("name").notNull(),
   type: text("type").default("unknown"),
   industryMode: text("industry_mode").default("general"),
+  jurisdiction: text("jurisdiction"), // e.g. "United States — California" or "United Kingdom"
   originalFileName: text("original_file_name"),
   extractedText: text("extracted_text").notNull(),
   analysis: jsonb("analysis").$type<AnalysisResult | null>(),

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
@@ -163,6 +163,12 @@ export default function ContractAnalysis() {
               {contract.industryMode && contract.industryMode !== "general" && (
                 <Badge variant="outline" className="text-xs">
                   {industryModeLabels[contract.industryMode as keyof typeof industryModeLabels] || contract.industryMode}
+                </Badge>
+              )}
+              {contract.jurisdiction && (
+                <Badge variant="secondary" className="text-xs gap-1" data-testid="badge-jurisdiction">
+                  <MapPin className="h-3 w-3" />
+                  {contract.jurisdiction}
                 </Badge>
               )}
             </div>

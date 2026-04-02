@@ -91,6 +91,8 @@ export async function registerRoutes(
       const industryMode = (req.body.industryMode || "general") as IndustryMode;
       const riskPreferences = req.body.riskPreferences ? JSON.parse(req.body.riskPreferences) : undefined;
       const userContext = req.body.context ? String(req.body.context).trim() : undefined;
+      const jurisdiction = req.body.jurisdiction ? String(req.body.jurisdiction).trim() : undefined;
+      const situation = req.body.situation ? JSON.parse(req.body.situation) : undefined;
 
       // Collect all uploaded files (multi-file "files" field + legacy single "file" field)
       const fileFields = req.files as Record<string, Express.Multer.File[]> | undefined;
@@ -122,10 +124,19 @@ export async function registerRoutes(
 
       const name = generateContractName(combinedText, primaryFilename);
 
-      // Combine user context with contract text for AI
-      const textForAnalysis = userContext
-        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${combinedText}`
-        : combinedText;
+      // Build AI prompt context block
+      const contextParts: string[] = [];
+      if (userContext) contextParts.push(`[USER CONTEXT]\n${userContext}`);
+      if (jurisdiction || situation) {
+        const sitLines: string[] = [];
+        if (jurisdiction) sitLines.push(`Jurisdiction: ${jurisdiction}`);
+        if (situation?.role) sitLines.push(`Role: ${situation.role}`);
+        if (situation?.leverage) sitLines.push(`Leverage: ${situation.leverage}`);
+        if (situation?.concern) sitLines.push(`Top concern: ${situation.concern}`);
+        contextParts.push(`[USER SITUATION]\n${sitLines.join("\n")}`);
+      }
+      contextParts.push(`[CONTRACT TEXT]\n${combinedText}`);
+      const textForAnalysis = contextParts.join("\n\n");
 
       // Create contract record
       const contract = await storage.createContract({
@@ -133,6 +144,7 @@ export async function registerRoutes(
         extractedText: combinedText,
         originalFileName: primaryFilename,
         industryMode,
+        jurisdiction: jurisdiction || null,
         status: "analyzing",
         userId,
       });
@@ -161,24 +173,35 @@ export async function registerRoutes(
   app.post("/api/contracts", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { text, industryMode = "general", riskPreferences, context } = req.body;
+      const { text, industryMode = "general", riskPreferences, context, jurisdiction, situation } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ message: "Contract text is required" });
       }
 
       const userContext = context && typeof context === "string" ? context.trim() : undefined;
+      const jurisdictionStr = jurisdiction && typeof jurisdiction === "string" ? jurisdiction.trim() : undefined;
 
       const name = generateContractName(text);
 
-      // Combine user context with contract text for AI — context goes first so it frames the analysis
-      const textForAnalysis = userContext
-        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${text}`
-        : text;
+      // Build AI prompt context block
+      const contextParts: string[] = [];
+      if (userContext) contextParts.push(`[USER CONTEXT]\n${userContext}`);
+      if (jurisdictionStr || situation) {
+        const sitLines: string[] = [];
+        if (jurisdictionStr) sitLines.push(`Jurisdiction: ${jurisdictionStr}`);
+        if (situation?.role) sitLines.push(`Role: ${situation.role}`);
+        if (situation?.leverage) sitLines.push(`Leverage: ${situation.leverage}`);
+        if (situation?.concern) sitLines.push(`Top concern: ${situation.concern}`);
+        contextParts.push(`[USER SITUATION]\n${sitLines.join("\n")}`);
+      }
+      contextParts.push(`[CONTRACT TEXT]\n${text}`);
+      const textForAnalysis = contextParts.join("\n\n");
 
       const contract = await storage.createContract({
         name,
         extractedText: text,
         industryMode,
+        jurisdiction: jurisdictionStr || null,
         status: "analyzing",
         userId,
       });

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sparkles, FileSearch, MessageSquare, Target } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
+import type { SituationProfile } from "@/components/JurisdictionSituationProfile";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -17,12 +18,16 @@ export default function Home() {
       industryMode,
       riskPreferences,
       context,
+      jurisdiction,
+      situation,
     }: {
       files: File[];
       text: string | null;
       industryMode: IndustryMode;
       riskPreferences?: RiskPreferences;
       context?: string;
+      jurisdiction?: string;
+      situation?: SituationProfile;
     }) => {
       if (files.length > 0) {
         const formData = new FormData();
@@ -30,6 +35,8 @@ export default function Home() {
         formData.append("industryMode", industryMode);
         if (riskPreferences) formData.append("riskPreferences", JSON.stringify(riskPreferences));
         if (context) formData.append("context", context);
+        if (jurisdiction) formData.append("jurisdiction", jurisdiction);
+        if (situation) formData.append("situation", JSON.stringify(situation));
         const response = await fetch("/api/contracts/upload", {
           method: "POST",
           body: formData,
@@ -43,7 +50,7 @@ export default function Home() {
         const response = await fetch("/api/contracts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, industryMode, riskPreferences, context }),
+          body: JSON.stringify({ text, industryMode, riskPreferences, context, jurisdiction, situation }),
         });
         if (!response.ok) {
           const error = await response.json();
@@ -77,8 +84,16 @@ export default function Home() {
     },
   });
 
-  const handleUpload = (files: File[], text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => {
-    uploadMutation.mutate({ files, text, industryMode, riskPreferences, context });
+  const handleUpload = (
+    files: File[],
+    text: string | null,
+    industryMode: IndustryMode,
+    riskPreferences?: RiskPreferences,
+    context?: string,
+    jurisdiction?: string,
+    situation?: SituationProfile
+  ) => {
+    uploadMutation.mutate({ files, text, industryMode, riskPreferences, context, jurisdiction, situation });
   };
 
   const features = [
