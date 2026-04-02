@@ -230,6 +230,53 @@ export async function registerRoutes(
     }
   });
 
+  // Refresh analysis on existing contract (same text, new AI run) — does NOT create a new record
+  app.post("/api/contracts/:id/reanalyze", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = getUserId(req);
+
+      const contract = await storage.getContract(id, userId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      if (!contract.extractedText) {
+        return res.status(400).json({ message: "No contract text stored to re-analyse" });
+      }
+
+      // Set status to analyzing immediately so frontend can show loading state
+      await storage.updateContract(id, userId, { status: "analyzing" });
+
+      const industryMode = (contract.industryMode || "general") as IndustryMode;
+      // Re-use stored jurisdiction if available
+      const contextParts: string[] = [];
+      if (contract.jurisdiction) {
+        contextParts.push(`[USER SITUATION]\nJurisdiction: ${contract.jurisdiction}`);
+      }
+      contextParts.push(`[CONTRACT TEXT]\n${contract.extractedText}`);
+      const textForAnalysis = contextParts.join("\n\n");
+
+      // Run analysis in background — return immediately so UI can poll
+      analyzeContractChunked(textForAnalysis, industryMode)
+        .then(async (result) => {
+          await storage.updateContractAnalysis(id, result, "completed");
+          if (result.contractType) {
+            await storage.updateContract(id, userId, { type: result.contractType });
+          }
+        })
+        .catch(async (error) => {
+          console.error("Re-analysis failed:", error);
+          await storage.updateContract(id, userId, { status: "error" });
+        });
+
+      const updated = await storage.getContract(id, userId);
+      res.json(updated);
+    } catch (error) {
+      console.error("Reanalyze error:", error);
+      res.status(500).json({ message: "Failed to start re-analysis" });
+    }
+  });
+
   // Explain selected text (requires auth)
   app.post("/api/contracts/:id/explain", isAuthenticated, async (req: Request, res: Response) => {
     try {

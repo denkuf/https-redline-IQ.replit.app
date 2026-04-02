@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { startStaleAnalysisChecker } from "./staleAnalysisChecker";
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,6 +64,9 @@ app.use((req, res, next) => {
 (async () => {
   // Seed the database with sample data
   await seedDatabase();
+
+  // Start the stale analysis notification checker (runs daily)
+  startStaleAnalysisChecker();
   
   await registerRoutes(httpServer, app);
 

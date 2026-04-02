@@ -142,6 +142,7 @@ export const contracts = pgTable("contracts", {
   status: text("status").default("pending"), // pending, analyzing, completed, error
   parentContractId: integer("parent_contract_id"), // For version comparison
   version: integer("version").default(1),
+  analysedAt: timestamp("analysed_at"), // When AI analysis was last run
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

@@ -172,7 +172,7 @@ class DbStorage implements IStorage {
   ): Promise<Contract | undefined> {
     const [updated] = await db
       .update(contracts)
-      .set({ analysis, status })
+      .set({ analysis, status, analysedAt: new Date() })
       .where(eq(contracts.id, id))
       .returning();
     return updated;

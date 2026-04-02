@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin, Clock, X } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
@@ -23,6 +23,26 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { industryModeLabels, type Contract, type Verdict } from "@shared/schema";
 
+const STALE_DAYS = 180;
+
+function getAnalysisAgeLabel(analysedAt: string | Date | null | undefined): string | null {
+  if (!analysedAt) return null;
+  const date = new Date(analysedAt);
+  const diffMs = Date.now() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 1) return "today";
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 30) return `${diffDays} days ago`;
+  const months = Math.floor(diffDays / 30);
+  return months === 1 ? "1 month ago" : `${months} months ago`;
+}
+
+function isAnalysisStale(analysedAt: string | Date | null | undefined): boolean {
+  if (!analysedAt) return true;
+  const diffMs = Date.now() - new Date(analysedAt).getTime();
+  return diffMs > STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export default function ContractAnalysis() {
   const params = useParams<{ id: string }>();
   const contractId = parseInt(params.id || "0");
@@ -32,6 +52,7 @@ export default function ContractAnalysis() {
   const [explanation, setExplanation] = useState("");
   const [isExplaining, setIsExplaining] = useState(false);
   const [showReupload, setShowReupload] = useState(false);
+  const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -75,6 +96,21 @@ export default function ContractAnalysis() {
         queryClient.invalidateQueries({ queryKey: ["/api/contracts", data.newContractId] });
       }
       navigate(`/compare/${data.newContractId || contractId}`);
+    },
+    onError: () => {
+      toast({ title: "Re-analysis failed", description: "Please try again.", variant: "destructive" });
+    },
+  });
+
+  const refreshAnalysisMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/reanalyze`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Re-analysis started", description: "The AI is reviewing your contract again. Results will update shortly." });
+      setStaleBannerDismissed(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
     },
     onError: () => {
       toast({ title: "Re-analysis failed", description: "Please try again.", variant: "destructive" });
@@ -171,6 +207,12 @@ export default function ContractAnalysis() {
                   {contract.jurisdiction}
                 </Badge>
               )}
+              {contract.analysedAt && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-analysed-at">
+                  <Clock className="h-3 w-3" />
+                  Analysed {getAnalysisAgeLabel(contract.analysedAt)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -192,6 +234,17 @@ export default function ContractAnalysis() {
                 <span className="hidden sm:inline">Compare</span>
               </Button>
             </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshAnalysisMutation.mutate()}
+              disabled={refreshAnalysisMutation.isPending}
+              data-testid="button-refresh-analysis"
+              title="Re-run AI analysis on the stored contract text"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh Analysis</span>
+            </Button>
             <div className="relative">
               <Button
                 variant="outline"
@@ -205,7 +258,7 @@ export default function ContractAnalysis() {
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                <span className="hidden sm:inline">Re-analyze</span>
+                <span className="hidden sm:inline">New Version</span>
               </Button>
               {showReupload && (
                 <div className="absolute right-0 top-full mt-2 z-10 bg-card border rounded-lg p-3 shadow-lg min-w-[200px]">
@@ -245,6 +298,42 @@ export default function ContractAnalysis() {
         </div>
       ) : (
         <div className="space-y-6">
+          {!staleBannerDismissed && isAnalysisStale(contract.analysedAt) && contract.extractedText && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3" data-testid="banner-stale-analysis">
+              <Clock className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Analysis may be outdated</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                  {contract.analysedAt
+                    ? `This analysis is ${getAnalysisAgeLabel(contract.analysedAt)} old.`
+                    : "This contract has never been analysed."}{" "}
+                  Laws, regulations, and market norms can change — a fresh review may surface new risks.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                  onClick={() => refreshAnalysisMutation.mutate()}
+                  disabled={refreshAnalysisMutation.isPending}
+                  data-testid="button-stale-reanalyze"
+                >
+                  <RefreshCw className={`h-3 w-3 mr-1 ${refreshAnalysisMutation.isPending ? "animate-spin" : ""}`} />
+                  Re-analyse now
+                </Button>
+                <button
+                  onClick={() => setStaleBannerDismissed(true)}
+                  className="text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 p-1"
+                  data-testid="button-dismiss-stale-banner"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {hasQuestions && analysis.clarifyingQuestions && (
             <ClarifyingQuestions
               questions={analysis.clarifyingQuestions.filter((q) => !q.answer)}
