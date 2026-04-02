@@ -1,6 +1,5 @@
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { FileUpload } from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, FileSearch, MessageSquare, Target } from "lucide-react";
@@ -12,29 +11,25 @@ export default function Home() {
   const { toast } = useToast();
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ 
-      file, 
-      text, 
-      industryMode, 
+    mutationFn: async ({
+      files,
+      text,
+      industryMode,
       riskPreferences,
       context,
-    }: { 
-      file: File | null; 
-      text: string | null; 
+    }: {
+      files: File[];
+      text: string | null;
       industryMode: IndustryMode;
       riskPreferences?: RiskPreferences;
       context?: string;
     }) => {
-      if (file) {
+      if (files.length > 0) {
         const formData = new FormData();
-        formData.append("file", file);
+        files.forEach(f => formData.append("files", f));
         formData.append("industryMode", industryMode);
-        if (riskPreferences) {
-          formData.append("riskPreferences", JSON.stringify(riskPreferences));
-        }
-        if (context) {
-          formData.append("context", context);
-        }
+        if (riskPreferences) formData.append("riskPreferences", JSON.stringify(riskPreferences));
+        if (context) formData.append("context", context);
         const response = await fetch("/api/contracts/upload", {
           method: "POST",
           body: formData,
@@ -45,21 +40,32 @@ export default function Home() {
         }
         return response.json();
       } else if (text) {
-        const response = await apiRequest("POST", "/api/contracts", { 
-          text, 
-          industryMode, 
-          riskPreferences,
-          context,
+        const response = await fetch("/api/contracts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, industryMode, riskPreferences, context }),
         });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to create contract");
+        }
         return response.json();
       }
       throw new Error("No file or text provided");
     },
     onSuccess: (data) => {
-      toast({
-        title: "Contract uploaded",
-        description: "Your contract is being analyzed...",
-      });
+      if (data.lowQualityWarning) {
+        toast({
+          title: "Low image quality detected",
+          description: "The photo may be hard to read. If results look wrong, retake in better lighting.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Contract uploaded",
+          description: "Your contract is being analysed...",
+        });
+      }
       navigate(`/contract/${data.id}`);
     },
     onError: (error: Error) => {
@@ -71,31 +77,15 @@ export default function Home() {
     },
   });
 
-  const handleUpload = (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => {
-    uploadMutation.mutate({ file, text, industryMode, riskPreferences, context });
+  const handleUpload = (files: File[], text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => {
+    uploadMutation.mutate({ files, text, industryMode, riskPreferences, context });
   };
 
   const features = [
-    {
-      icon: Target,
-      title: "Instant Verdict",
-      description: "Clear risk score (0-100)",
-    },
-    {
-      icon: FileSearch,
-      title: "Deep Analysis",
-      description: "Industry-specific insights",
-    },
-    {
-      icon: MessageSquare,
-      title: "Negotiation Help",
-      description: "Know what to say",
-    },
-    {
-      icon: Sparkles,
-      title: "AI-Powered",
-      description: "Grounded in your doc",
-    },
+    { icon: Target, title: "Instant Verdict", description: "Clear risk score (0-100)" },
+    { icon: FileSearch, title: "Deep Analysis", description: "Industry-specific insights" },
+    { icon: MessageSquare, title: "Negotiation Help", description: "Know what to say" },
+    { icon: Sparkles, title: "AI-Powered", description: "Grounded in your doc" },
   ];
 
   return (

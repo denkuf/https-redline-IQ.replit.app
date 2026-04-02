@@ -2,9 +2,28 @@ import * as pdfParse from "pdf-parse";
 import * as mammoth from "mammoth";
 import { extractTextFromImage } from "./ai";
 
+export interface ParseResult {
+  text: string;
+  lowQuality: boolean;
+}
+
+function assessOcrQuality(text: string): boolean {
+  if (!text || text.length < 100) return true;
+  const chars = text.length;
+  const words = text.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w));
+  const wordsPerThousandChars = (words.length / chars) * 1000;
+  return wordsPerThousandChars < 30;
+}
+
 export async function parseFile(buffer: Buffer, mimetype: string, filename: string): Promise<string> {
+  const result = await parseFileWithQuality(buffer, mimetype, filename);
+  return result.text;
+}
+
+export async function parseFileWithQuality(buffer: Buffer, mimetype: string, filename: string): Promise<ParseResult> {
   if (mimetype === "application/pdf") {
-    return parsePdf(buffer);
+    const text = await parsePdf(buffer);
+    return { text, lowQuality: false };
   }
   
   if (
@@ -13,15 +32,17 @@ export async function parseFile(buffer: Buffer, mimetype: string, filename: stri
     filename.endsWith(".docx") ||
     filename.endsWith(".doc")
   ) {
-    return parseDocx(buffer);
+    const text = await parseDocx(buffer);
+    return { text, lowQuality: false };
   }
   
   if (mimetype.startsWith("image/")) {
-    return parseImage(buffer);
+    const text = await parseImage(buffer);
+    const lowQuality = assessOcrQuality(text);
+    return { text, lowQuality };
   }
   
-  // Try to parse as text
-  return buffer.toString("utf-8");
+  return { text: buffer.toString("utf-8"), lowQuality: false };
 }
 
 async function parsePdf(buffer: Buffer): Promise<string> {
@@ -55,14 +76,12 @@ async function parseImage(buffer: Buffer): Promise<string> {
 
 export function generateContractName(text: string, filename?: string): string {
   if (filename) {
-    // Remove extension and clean up
     const name = filename.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
     if (name.length > 3) {
       return name.slice(0, 50);
     }
   }
   
-  // Try to extract a name from the first few lines
   const lines = text.split("\n").slice(0, 10);
   for (const line of lines) {
     const cleaned = line.trim();

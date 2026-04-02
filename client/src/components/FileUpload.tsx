@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Image, X, Settings2, Camera, Info } from "lucide-react";
+import { Upload, FileText, Image, X, Settings2, Camera, Info, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,11 +11,11 @@ import { RiskPreferencesForm } from "./RiskPreferencesForm";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 interface FileUploadProps {
-  onUpload: (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => void;
+  onUpload: (files: File[], text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => void;
   isLoading?: boolean;
 }
 
-const ACCEPTED_TYPES = {
+const ACCEPTED_TYPES: Record<string, string> = {
   "application/pdf": "PDF",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
   "application/msword": "DOC",
@@ -30,64 +30,98 @@ const defaultPreferences: RiskPreferences = {
   wantEasyTermination: true,
 };
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
 export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [cameraFile, setCameraFile] = useState<File | null>(null);
+  const [cameraPreviewUrl, setCameraPreviewUrl] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState("");
   const [activeTab, setActiveTab] = useState("upload");
   const [industryMode, setIndustryMode] = useState<IndustryMode>("general");
   const [riskPreferences, setRiskPreferences] = useState<RiskPreferences>(defaultPreferences);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [context, setContext] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = useCallback((incoming: File[]) => {
+    setSelectedFiles(prev => {
+      const existing = new Set(prev.map(f => f.name + f.size));
+      const fresh = incoming.filter(f => {
+        if (!Object.keys(ACCEPTED_TYPES).includes(f.type)) return false;
+        return !existing.has(f.name + f.size);
+      });
+      return [...prev, ...fresh].slice(0, 5);
+    });
+  }, []);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (Object.keys(ACCEPTED_TYPES).includes(file.type)) {
-        setSelectedFile(file);
-      }
-    }
-  }, []);
+    if (e.dataTransfer.files) addFiles(Array.from(e.dataTransfer.files));
+  }, [addFiles]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      addFiles(Array.from(e.target.files));
+      e.target.value = "";
     }
+  };
+
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (cameraPreviewUrl) URL.revokeObjectURL(cameraPreviewUrl);
+      setCameraFile(file);
+      setCameraPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const clearCameraFile = () => {
+    if (cameraPreviewUrl) URL.revokeObjectURL(cameraPreviewUrl);
+    setCameraFile(null);
+    setCameraPreviewUrl(null);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
     const prefs = showAdvanced ? riskPreferences : undefined;
     const ctx = context.trim() || undefined;
-    if ((activeTab === "upload" || activeTab === "camera") && selectedFile) {
-      onUpload(selectedFile, null, industryMode, prefs, ctx);
+    if (activeTab === "upload" && selectedFiles.length > 0) {
+      onUpload(selectedFiles, null, industryMode, prefs, ctx);
+    } else if (activeTab === "camera" && cameraFile) {
+      onUpload([cameraFile], null, industryMode, prefs, ctx);
     } else if (activeTab === "paste" && pastedText.trim()) {
-      onUpload(null, pastedText.trim(), industryMode, prefs, ctx);
+      onUpload([], pastedText.trim(), industryMode, prefs, ctx);
     }
   };
 
-  const clearFile = () => {
-    setSelectedFile(null);
+  const getFileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <Image className="h-5 w-5 text-primary" />;
+    return <FileText className="h-5 w-5 text-primary" />;
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.startsWith("image/")) return <Image className="h-8 w-8 text-primary" />;
-    return <FileText className="h-8 w-8 text-primary" />;
-  };
+  const canSubmit = !isLoading && (
+    (activeTab === "upload" && selectedFiles.length > 0) ||
+    (activeTab === "camera" && cameraFile !== null) ||
+    (activeTab === "paste" && pastedText.trim().length > 0)
+  );
 
   return (
     <Card className="p-6 border-border/40">
@@ -114,26 +148,45 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload" className="space-y-4">
-          {selectedFile ? (
-            <div className="flex items-center gap-4 p-4 rounded-md bg-muted">
-              {getFileIcon(selectedFile.type)}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{selectedFile.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearFile}
-                data-testid="button-clear-file"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+        <TabsContent value="upload" className="space-y-3">
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              {selectedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-muted" data-testid={`file-item-${index}`}>
+                  {getFileIcon(file.type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => removeFile(index)}
+                    disabled={isLoading}
+                    data-testid={`button-remove-file-${index}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {selectedFiles.length < 5 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-dashed"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  data-testid="button-add-more-files"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add exhibit or schedule ({selectedFiles.length}/5)
+                </Button>
+              )}
             </div>
-          ) : (
+          )}
+
+          {selectedFiles.length === 0 && (
             <div
               className={`relative border-2 border-dashed rounded-lg p-12 transition-colors ${
                 dragActive
@@ -148,7 +201,8 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
+                multiple
+                onChange={handleFileInputChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 data-testid="input-file-upload"
               />
@@ -158,36 +212,57 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
                 </div>
                 <div>
                   <p className="font-medium">Drop your contract here</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    or click to browse
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Supports PDF, DOC, DOCX, JPG, PNG
+                  PDF, DOC, DOCX, JPG, PNG · Up to 5 files (main contract + exhibits)
                 </p>
               </div>
             </div>
           )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            multiple
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
         </TabsContent>
 
         <TabsContent value="camera" className="space-y-4">
-          {selectedFile && selectedFile.type.startsWith("image/") ? (
-            <div className="flex items-center gap-4 p-4 rounded-md bg-muted">
-              <Image className="h-8 w-8 text-primary" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{selectedFile.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
+          {cameraFile && cameraPreviewUrl ? (
+            <div className="space-y-3">
+              <div className="relative rounded-lg overflow-hidden border border-border/50">
+                <img
+                  src={cameraPreviewUrl}
+                  alt="Contract photo preview"
+                  className="w-full max-h-48 object-contain bg-muted"
+                  data-testid="img-camera-preview"
+                />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-2 right-2 h-7 w-7 rounded-full shadow"
+                  onClick={clearCameraFile}
+                  disabled={isLoading}
+                  data-testid="button-clear-camera-file"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={clearFile}
-                data-testid="button-clear-camera-file"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2 p-2.5 rounded-md bg-muted">
+                <Image className="h-4 w-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{cameraFile.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatBytes(cameraFile.size)}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                For best results, ensure the text is clearly visible and well-lit. Poor image quality may reduce analysis accuracy.
+              </div>
             </div>
           ) : (
             <div
@@ -199,7 +274,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={handleFileChange}
+                onChange={handleCameraChange}
                 className="hidden"
                 data-testid="input-camera-capture"
               />
@@ -209,12 +284,10 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
                 </div>
                 <div>
                   <p className="font-medium">Take a photo of your contract</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Tap to open camera
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Tap to open camera</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Our AI will extract and analyze the text
+                  Our AI will extract and analyse the text
                 </p>
               </div>
             </div>
@@ -230,7 +303,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
             data-testid="textarea-paste-contract"
           />
           <p className="text-xs text-muted-foreground">
-            Paste the full contract text or the specific sections you want analyzed
+            Paste the full contract text or the specific sections you want analysed
           </p>
         </TabsContent>
       </Tabs>
@@ -242,7 +315,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </Label>
         <Textarea
           id="context-field"
-          placeholder="Describe your situation to improve analysis accuracy — e.g. &quot;This is a freelance web dev contract from a new client. I'm based in California and want to know if the payment terms and IP clauses are fair.&quot;"
+          placeholder={`Describe your situation — e.g. "This is a freelance web dev contract from a new client. I'm based in California and want to know if the payment terms and IP clauses are fair."`}
           value={context}
           onChange={(e) => setContext(e.target.value)}
           className="min-h-[80px] resize-none text-sm"
@@ -270,11 +343,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
       <div className="mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={
-            isLoading ||
-            ((activeTab === "upload" || activeTab === "camera") && !selectedFile) ||
-            (activeTab === "paste" && !pastedText.trim())
-          }
+          disabled={!canSubmit}
           className="w-full rounded-lg h-11"
           data-testid="button-analyze"
         >

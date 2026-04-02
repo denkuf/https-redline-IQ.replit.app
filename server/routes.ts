@@ -4,8 +4,8 @@ import multer from "multer";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { analyzeContract, explainClause, reanalyzeWithAnswers, compareContracts } from "./ai";
-import { parseFile, generateContractName } from "./fileParser";
+import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts } from "./ai";
+import { parseFile, parseFileWithQuality, generateContractName } from "./fileParser";
 import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
 import { registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
@@ -14,6 +14,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
 });
+
+const uploadMulti = upload.fields([
+  { name: "files", maxCount: 5 },
+  { name: "file", maxCount: 1 },
+]);
 
 // Helper to get userId from authenticated session
 function getUserId(req: Request): string {
@@ -79,44 +84,61 @@ export async function registerRoutes(
     }
   });
 
-  // Upload file and create contract (requires auth)
-  app.post("/api/contracts/upload", isAuthenticated, upload.single("file"), async (req: Request, res: Response) => {
+  // Upload file(s) and create contract (requires auth) — supports up to 5 files
+  app.post("/api/contracts/upload", isAuthenticated, uploadMulti, async (req: Request, res: Response) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
       const userId = getUserId(req);
-      const { buffer, mimetype, originalname } = req.file;
       const industryMode = (req.body.industryMode || "general") as IndustryMode;
       const riskPreferences = req.body.riskPreferences ? JSON.parse(req.body.riskPreferences) : undefined;
       const userContext = req.body.context ? String(req.body.context).trim() : undefined;
-      
-      // Parse file to extract text
-      const extractedText = await parseFile(buffer, mimetype, originalname);
-      if (!extractedText.trim()) {
-        return res.status(400).json({ message: "Could not extract text from file" });
+
+      // Collect all uploaded files (multi-file "files" field + legacy single "file" field)
+      const fileFields = req.files as Record<string, Express.Multer.File[]> | undefined;
+      const multiFiles = fileFields?.files || [];
+      const legacyFile = fileFields?.file?.[0];
+      const allFiles = multiFiles.length > 0 ? multiFiles : legacyFile ? [legacyFile] : [];
+
+      if (allFiles.length === 0) {
+        return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const name = generateContractName(extractedText, originalname);
+      // Parse each file and concatenate text with section headers
+      let combinedText = "";
+      let anyLowQuality = false;
+      const primaryFilename = allFiles[0].originalname;
 
-      // Combine user context with contract text for AI — context goes first so it frames the analysis
+      for (const f of allFiles) {
+        const { text, lowQuality } = await parseFileWithQuality(f.buffer, f.mimetype, f.originalname);
+        if (lowQuality) anyLowQuality = true;
+        if (!text.trim()) continue;
+        combinedText += allFiles.length > 1
+          ? `\n\n[FILE: ${f.originalname}]\n${text}`
+          : text;
+      }
+
+      if (!combinedText.trim()) {
+        return res.status(400).json({ message: "Could not extract text from the uploaded file(s)" });
+      }
+
+      const name = generateContractName(combinedText, primaryFilename);
+
+      // Combine user context with contract text for AI
       const textForAnalysis = userContext
-        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${extractedText}`
-        : extractedText;
+        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${combinedText}`
+        : combinedText;
 
-      // Create contract with pending status (userId for data isolation)
+      // Create contract record
       const contract = await storage.createContract({
         name,
-        extractedText,
-        originalFileName: originalname,
+        extractedText: combinedText,
+        originalFileName: primaryFilename,
         industryMode,
         status: "analyzing",
         userId,
       });
 
-      // Start analysis in background
-      analyzeContract(textForAnalysis, industryMode, riskPreferences)
+      // Chunked analysis in background (handles any contract length)
+      analyzeContractChunked(textForAnalysis, industryMode, riskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {
@@ -128,7 +150,7 @@ export async function registerRoutes(
           await storage.updateContract(contract.id, userId, { status: "error" });
         });
 
-      res.status(201).json(contract);
+      res.status(201).json({ ...contract, lowQualityWarning: anyLowQuality });
     } catch (error) {
       console.error("Upload error:", error);
       res.status(500).json({ message: "Failed to upload file" });
@@ -161,8 +183,8 @@ export async function registerRoutes(
         userId,
       });
 
-      // Start analysis in background
-      analyzeContract(textForAnalysis, industryMode as IndustryMode, riskPreferences)
+      // Start chunked analysis in background (handles any contract length)
+      analyzeContractChunked(textForAnalysis, industryMode as IndustryMode, riskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {
@@ -348,8 +370,8 @@ export async function registerRoutes(
         userId,
       });
 
-      // Start analysis of new version
-      analyzeContract(newText, (originalContract.industryMode || "general") as IndustryMode)
+      // Start analysis of new version (chunked to handle long contracts)
+      analyzeContractChunked(newText, (originalContract.industryMode || "general") as IndustryMode)
         .then(async (result) => {
           await storage.updateContractAnalysis(newContract.id, result, "completed");
         })
@@ -407,8 +429,8 @@ export async function registerRoutes(
 
       await storage.updateContract(id, userId, { status: "analyzing", industryMode });
 
-      // Re-analyze with new mode
-      analyzeContract(contract.extractedText, industryMode as IndustryMode, riskPreferences)
+      // Re-analyze with new mode (chunked to handle long contracts)
+      analyzeContractChunked(contract.extractedText, industryMode as IndustryMode, riskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(id, result, "completed");
         })

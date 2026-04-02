@@ -284,6 +284,157 @@ export async function analyzeContract(
   }
 }
 
+// ============================================
+// Chunked Analysis for Long Contracts
+// ============================================
+
+const CHUNK_SIZE = 15000;
+const CHUNK_OVERLAP = 2000;
+const CHUNK_THRESHOLD = 45000;
+
+function splitIntoChunks(text: string): string[] {
+  if (text.length <= CHUNK_THRESHOLD) return [text];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + CHUNK_SIZE, text.length);
+    chunks.push(text.slice(start, end));
+    if (end === text.length) break;
+    start = end - CHUNK_OVERLAP;
+  }
+  return chunks;
+}
+
+function normaliseTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function mergeAnalysisResults(
+  results: Array<AnalysisResult & { contractType?: string }>,
+  industryMode: IndustryMode
+): AnalysisResult & { contractType?: string } {
+  if (results.length === 0) throw new Error("No analysis results to merge");
+  if (results.length === 1) return results[0];
+
+  // Risk flags: deduplicate by normalised title + clauseReference
+  const seenFlags = new Set<string>();
+  const allFlags: RiskFlag[] = [];
+  for (const r of results) {
+    for (const flag of r.riskFlags) {
+      const key = normaliseTitle(flag.title) + "|" + flag.clauseReference;
+      if (!seenFlags.has(key)) {
+        seenFlags.add(key);
+        allFlags.push(flag);
+      }
+    }
+  }
+  // Sort: High → Medium → Low
+  const severityOrder = { High: 0, Medium: 1, Low: 2 };
+  allFlags.sort((a, b) => (severityOrder[a.severity] ?? 1) - (severityOrder[b.severity] ?? 1));
+
+  // Key terms: deduplicate by category+value
+  const seenTerms = new Set<string>();
+  const allKeyTerms: typeof results[0]["keyTerms"] = [];
+  for (const r of results) {
+    for (const term of r.keyTerms) {
+      const key = (term.category + "|" + term.value).toLowerCase();
+      if (!seenTerms.has(key)) {
+        seenTerms.add(key);
+        allKeyTerms.push(term);
+      }
+    }
+  }
+
+  // Verdict: take highest risk score
+  const verdicts = results.map(r => r.verdict).filter(Boolean) as Verdict[];
+  let mergedVerdict: Verdict | undefined;
+  if (verdicts.length > 0) {
+    const highest = verdicts.reduce((a, b) => a.riskScore >= b.riskScore ? a : b);
+    const allTopRisks = verdicts.flatMap(v => v.topRisks);
+    const seenTopRisks = new Set<string>();
+    const dedupedTopRisks = allTopRisks.filter(r => {
+      const k = normaliseTitle(r.title);
+      if (seenTopRisks.has(k)) return false;
+      seenTopRisks.add(k);
+      return true;
+    }).slice(0, 3);
+    const allPriorities = verdicts.flatMap(v => v.negotiationPriorities);
+    const seenPriorities = new Set<string>();
+    const dedupedPriorities = allPriorities.filter(p => {
+      const k = p.toLowerCase().trim();
+      if (seenPriorities.has(k)) return false;
+      seenPriorities.add(k);
+      return true;
+    }).slice(0, 3);
+    const score = highest.riskScore;
+    const verdictLabel: Verdict["verdict"] =
+      score >= 76 ? "Do Not Sign" :
+      score >= 51 ? "High Risk" :
+      score >= 26 ? "Caution" : "Safe";
+    mergedVerdict = {
+      riskScore: score,
+      verdict: verdictLabel,
+      topRisks: dedupedTopRisks,
+      negotiationPriorities: dedupedPriorities,
+      reasoning: highest.reasoning,
+    };
+  }
+
+  // Summary: use first chunk's summary (it has the contract start)
+  const summary = results[0].summary;
+
+  // Overall assessment: use the one from the highest-risk chunk
+  const highestRiskResult = results.reduce((a, b) =>
+    (a.verdict?.riskScore ?? 0) >= (b.verdict?.riskScore ?? 0) ? a : b
+  );
+
+  // Clarifying questions: merge and deduplicate
+  const seenQuestions = new Set<string>();
+  const allQuestions: ClarifyingQuestion[] = [];
+  for (const r of results) {
+    for (const q of (r.clarifyingQuestions || [])) {
+      const k = q.question.toLowerCase().trim();
+      if (!seenQuestions.has(k)) {
+        seenQuestions.add(k);
+        allQuestions.push(q);
+      }
+    }
+  }
+
+  // Contract type: first non-null
+  const contractType = results.map(r => r.contractType).find(Boolean);
+
+  return {
+    summary,
+    keyTerms: allKeyTerms,
+    riskFlags: allFlags,
+    clarifyingQuestions: allQuestions,
+    overallAssessment: highestRiskResult.overallAssessment,
+    verdict: mergedVerdict,
+    industryMode,
+    contractType,
+  };
+}
+
+export async function analyzeContractChunked(
+  contractText: string,
+  industryMode: IndustryMode = "general",
+  riskPreferences?: RiskPreferences
+): Promise<AnalysisResult & { contractType?: string }> {
+  const chunks = splitIntoChunks(contractText);
+  if (chunks.length === 1) {
+    return analyzeContract(contractText, industryMode, riskPreferences);
+  }
+  console.log(`Analyzing contract in ${chunks.length} chunks (${contractText.length} chars total)`);
+  const results = await Promise.all(
+    chunks.map((chunk, i) => {
+      const header = chunks.length > 1 ? `[PART ${i + 1} OF ${chunks.length}]\n` : "";
+      return analyzeContract(header + chunk, industryMode, riskPreferences);
+    })
+  );
+  return mergeAnalysisResults(results, industryMode);
+}
+
 export async function explainClause(selectedText: string): Promise<string> {
   const prompt = EXPLAIN_PROMPT.replace("{selectedText}", selectedText.slice(0, 2000));
 
