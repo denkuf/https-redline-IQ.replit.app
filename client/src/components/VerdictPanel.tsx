@@ -1,14 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Shield, AlertTriangle, XCircle, CheckCircle, ArrowRight } from "lucide-react";
+import { Shield, AlertTriangle, XCircle, CheckCircle, ArrowRight, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Verdict } from "@shared/schema";
 
 interface VerdictPanelProps {
   verdict: Verdict;
+  /** If the validation pass adjusted the score, supply the delta here (positive = raised, negative = lowered) */
+  scoreDelta?: number;
 }
 
-export function VerdictPanel({ verdict }: VerdictPanelProps) {
+export function VerdictPanel({ verdict, scoreDelta }: VerdictPanelProps) {
+  // Detect if reasoning mentions a validation adjustment
+  const wasAdjusted = verdict.reasoning?.includes("[Score adjusted:");
+  const adjustmentNote = wasAdjusted
+    ? verdict.reasoning.match(/\[Score adjusted: ([^\]]+)\]/)?.[1] ?? null
+    : null;
   const getVerdictConfig = () => {
     switch (verdict.verdict) {
       case "Safe":
@@ -79,7 +87,32 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="text-muted-foreground">Risk Score</span>
-            <span className="font-semibold" data-testid="risk-score">{verdict.riskScore}/100</span>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold" data-testid="risk-score">{verdict.riskScore}/100</span>
+              {wasAdjusted && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="text-xs gap-1 cursor-help border-blue-300 text-blue-700 dark:border-blue-600 dark:text-blue-400"
+                        data-testid="score-validated-badge"
+                      >
+                        <Info className="h-3 w-3" />
+                        Validated
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="text-xs">
+                        {adjustmentNote
+                          ? `Score adjusted: ${adjustmentNote}`
+                          : "This score was confirmed by a secondary AI review."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
           </div>
           <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
             <div 
@@ -131,7 +164,7 @@ export function VerdictPanel({ verdict }: VerdictPanelProps) {
 
         <div className="pt-3 border-t">
           <p className="text-sm text-muted-foreground" data-testid="verdict-reasoning">
-            {verdict.reasoning}
+            {verdict.reasoning?.replace(/\s*\[Score adjusted:[^\]]+\]/, "")}
           </p>
           <p className="text-xs text-muted-foreground mt-2 italic">
             Reasoning is contract-based only. This is not legal advice.

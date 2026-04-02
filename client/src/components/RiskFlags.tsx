@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Quote, CheckCircle } from "lucide-react";
+import { AlertTriangle, Quote, CheckCircle, Info } from "lucide-react";
 import { RiskBadge } from "./RiskBadge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { NegotiationSuggestion } from "./NegotiationSuggestion";
@@ -89,6 +89,20 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
               <AccordionContent className="space-y-4 pt-2">
                 <p className="text-muted-foreground">{risk.explanation}</p>
 
+                {/* Standard/Unusual context note */}
+                {risk.isStandard === true && risk.standardNote && (
+                  <div className="flex items-start gap-2 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-2 rounded" data-testid={`standard-note-${i}`}>
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span><strong>Commonly seen:</strong> {risk.standardNote}</span>
+                  </div>
+                )}
+                {risk.isStandard === false && risk.unusualNote && (
+                  <div className="flex items-start gap-2 text-xs text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-2 rounded" data-testid={`unusual-note-${i}`}>
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span><strong>Unusual:</strong> {risk.unusualNote}</span>
+                  </div>
+                )}
+
                 <div className="p-3 bg-muted/50 rounded-md border-l-2 border-primary">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                     <Quote className="h-3 w-3" />
@@ -102,10 +116,11 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
                   <ConfidenceIndicator confidence={risk.confidence} />
                 </div>
 
-                {risk.confidence < 0.7 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                    This assessment has lower confidence — this clause may be ambiguous. Consider professional review.
-                  </p>
+                {risk.confidence < 0.75 && (
+                  <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2 rounded" data-testid={`low-confidence-note-${i}`}>
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Lower confidence — this clause may be ambiguous or context-dependent. Consider professional review.</span>
+                  </div>
                 )}
 
                 {risk.negotiation && (

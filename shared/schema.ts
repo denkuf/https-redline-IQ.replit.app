@@ -50,6 +50,8 @@ export const riskFlagSchema = z.object({
   clauseReference: z.string(),
   confidence: z.number().min(0).max(1),
   isStandard: z.boolean().optional(), // Whether this is "commonly seen" in this contract type
+  standardNote: z.string().optional(), // What makes it standard, e.g. "30-day notice is the SaaS industry norm"
+  unusualNote: z.string().optional(), // Why it stands out, e.g. "90-day notice heavily favours the vendor"
   negotiation: negotiationSuggestionSchema.optional(),
 });
 

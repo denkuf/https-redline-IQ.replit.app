@@ -11,67 +11,117 @@ const FULL_MODEL = "gpt-4.1";
 
 // Industry-specific playbooks with mode-specific red flags
 const INDUSTRY_PLAYBOOKS: Record<IndustryMode, string> = {
-  general: `Focus on universal contract risks: unclear terms, hidden fees, unfair termination, one-sided liability.`,
-  
-  rent_lease: `RENT/LEASE MODE - Focus on:
-- Security deposit terms and return conditions
-- Rent increase clauses and caps
-- Maintenance responsibilities (who pays for what)
-- Early termination fees and subletting restrictions
-- Automatic renewal traps
-- Entry/inspection rights
-- Pet policies and extra fees
-COMMONLY SEEN vs UNUSUAL: Mark clauses as "commonly seen" if typical for residential leases (e.g., 1-month security deposit), or flag if unusual (e.g., 3-month deposit, unlimited rent increases).`,
+  general: `GENERAL CONTRACT MODE — Focus on universal contract risks.
 
-  employment: `EMPLOYMENT MODE - Focus on:
-- Non-compete clauses (scope, duration, geography)
-- Intellectual property assignment (especially for personal projects)
-- Termination conditions (at-will vs for-cause)
-- Severance terms
-- Confidentiality scope
-- Non-solicitation clauses
-- Arbitration requirements
-COMMONLY SEEN vs UNUSUAL: Mark standard employment terms vs unusually restrictive clauses.`,
+RED FLAGS (8 priority items):
+1. Unilateral amendment rights — one party can change terms without consent (unusual; flag if present)
+2. Unlimited liability exposure — no cap on damages owed by signer (unusual; standard is liability capped at contract value)
+3. Automatic renewal with long notice period — renewal locks in without affirmative action (standard: 30 days notice; unusual: 60+ days or no notice option)
+4. One-sided termination rights — other party can cancel anytime, signer cannot (unusual)
+5. Broad indemnification — signer indemnifies the other party for their own negligence (unusual; standard is mutual or limited indemnity)
+6. Mandatory arbitration with unfavourable venue — dispute resolution requires travelling to another city/state (unusual)
+7. Waiver of jury trial — standard in some commercial contracts, unusual in consumer contracts
+8. "Entire agreement" clause without carve-outs — prior promises not honoured (commonly seen; note if important oral terms were made)
 
-  freelance: `FREELANCE/CONTRACTOR MODE - Focus on:
-- Payment terms and schedules
-- Scope creep protections
-- Revision limits
-- Kill fee / cancellation terms
-- IP ownership transfer timing (upon payment vs immediately)
-- Indemnification clauses
-- Late payment penalties
-COMMONLY SEEN vs UNUSUAL: 50% upfront is common, Net-60 payment is risky for freelancers.`,
+STANDARD BENCHMARKS: Liability capped at fees paid, 30-day termination notice, mutual indemnity for own negligence, local or agreed dispute venue.
+UNUSUAL THRESHOLDS: Liability cap waived, 90+ day notice, unilateral amendment rights, mandatory arbitration far from signer.
+PRIORITY NEGOTIATION TARGETS: Liability cap, termination rights, indemnification scope.`,
 
-  insurance: `INSURANCE MODE - Focus on:
-- Exclusions and limitations
-- Deductibles and caps
-- Pre-existing condition clauses
-- Claim procedures and timelines
-- Cancellation terms
-- Automatic renewal and rate changes
-- Subrogation rights
-COMMONLY SEEN vs UNUSUAL: Standard exclusions vs unusual limitations.`,
+  rent_lease: `RENT/LEASE MODE — Focus on residential and commercial lease risks.
 
-  saas_subscription: `SAAS/SUBSCRIPTION MODE - Focus on:
-- Automatic renewal and cancellation notice periods
-- Price change clauses
-- Data ownership and portability
-- Service level guarantees (SLA)
-- Termination for convenience
-- Usage limits and overage fees
-- Indemnification for data breaches
-COMMONLY SEEN vs UNUSUAL: Monthly billing is common, annual auto-renewal with 60+ day notice is risky.`,
+RED FLAGS (8 priority items):
+1. Security deposit above 1 month's rent — STANDARD: 1–1.5 months; UNUSUAL: 2+ months; RED FLAG: 3+ months with no return timeline
+2. Unlimited rent increase clauses — STANDARD: annual CPI-capped increases; UNUSUAL: landlord can raise rent at any time without cap
+3. Tenant-responsible maintenance — STANDARD: tenant maintains interior/appliances; UNUSUAL: tenant responsible for structural, plumbing, or HVAC repairs
+4. Early termination penalty — STANDARD: 1–2 months rent buyout; UNUSUAL: full remaining lease balance owed; RED FLAG: no termination right at all
+5. Automatic renewal with short notice — STANDARD: 30–60 day notice to exit; UNUSUAL: 90+ days notice required to avoid auto-renewal
+6. Broad landlord entry rights — STANDARD: 24–48 hours notice except emergency; UNUSUAL: no notice required for landlord entry
+7. Subletting prohibition — STANDARD: subletting requires landlord consent; UNUSUAL: absolute ban with no exceptions or approval process
+8. Unclear damage/deposit deduction — STANDARD: itemised deductions with receipts; UNUSUAL: landlord can deduct for "wear and tear" or undefined damages
 
-  small_business: `SMALL BUSINESS/VENDOR MODE - Focus on:
-- Payment terms (Net-30/60/90)
-- Warranty and liability limits
-- Exclusivity clauses
-- Minimum order quantities
-- Price adjustment rights
-- Termination penalties
-- Force majeure scope
-COMMONLY SEEN vs UNUSUAL: Net-30 is standard, unlimited liability is unusual.`,
+STANDARD BENCHMARKS: 1 month deposit, CPI rent increases, 48hr entry notice, 30-day termination notice, 1-month buyout.
+UNUSUAL THRESHOLDS: 3+ months deposit, unlimited rent increases, no entry notice, 90+ day auto-renewal lock-in.
+PRIORITY NEGOTIATION TARGETS: Deposit cap, rent increase limits, entry notice, early termination buyout.`,
+
+  employment: `EMPLOYMENT MODE — Focus on job offer and employment agreement risks.
+
+RED FLAGS (8 priority items):
+1. Non-compete scope — STANDARD: same industry within 25-mile radius for 6–12 months; UNUSUAL: nationwide scope or 2+ years; RED FLAG: worldwide or indefinite non-compete
+2. IP assignment breadth — STANDARD: work-created-on-the-job assigned to employer; UNUSUAL: all inventions including personal projects with own equipment outside work hours
+3. Termination without cause — STANDARD for at-will employment; RED FLAG: termination for cause clause that gives employer near-unlimited discretion
+4. Severance absence — STANDARD at senior levels: 2–4 weeks per year of service; UNUSUAL: no severance at all for involuntary termination
+5. Confidentiality duration — STANDARD: during employment + 1–2 years after; UNUSUAL: indefinite confidentiality with no sunset clause
+6. Non-solicitation scope — STANDARD: cannot recruit colleagues for 12 months; UNUSUAL: cannot work with any former client even if you didn't serve them
+7. Mandatory arbitration — STANDARD in some US employers; RED FLAG: waiver of class action in consumer-facing roles
+8. Clawback / repayment clauses — STANDARD: sign-on bonus repayment if leaving within 1 year; UNUSUAL: repayment of training costs or ordinary salary for any reason
+
+STANDARD BENCHMARKS: 12-month non-compete, 25-mile radius, personal-project IP carve-out, 2-week severance/year, 1-year post-employment NDA.
+UNUSUAL THRESHOLDS: 24+ month non-compete, nationwide scope, all-inventions IP clause, no severance, indefinite NDA.
+PRIORITY NEGOTIATION TARGETS: Non-compete geography/duration, IP carve-out for personal projects, severance terms.`,
+
+  freelance: `FREELANCE/CONTRACTOR MODE — Focus on independent contractor agreement risks.
+
+RED FLAGS (8 priority items):
+1. Payment terms — STANDARD: 50% upfront + 50% on delivery or Net-30; UNUSUAL: Net-60; RED FLAG: Net-90 or payment only "upon client approval" with no approval deadline
+2. Scope creep — STANDARD: change orders required for out-of-scope work; UNUSUAL: client can expand scope unilaterally without additional pay
+3. Revision limits — STANDARD: 2–3 rounds of revisions included; UNUSUAL: unlimited revisions with no additional cost
+4. Kill fee / cancellation — STANDARD: 25–50% of remaining contract value if cancelled mid-project; UNUSUAL: no kill fee, full refund required on cancellation
+5. IP ownership timing — STANDARD: IP transfers upon final payment; UNUSUAL: IP transfers immediately on creation before payment received
+6. Contractor liability / indemnification — STANDARD: indemnify only for contractor's own negligence; UNUSUAL: contractor indemnifies client for client's own negligence or third-party claims
+7. Exclusivity clause — STANDARD: project-specific non-compete; UNUSUAL: cannot work for any competitor during engagement
+8. Late payment penalty — STANDARD: 1.5% monthly interest on overdue amounts; UNUSUAL: no late payment remedy at all
+
+STANDARD BENCHMARKS: 50% upfront, Net-30, 3 revisions, 25% kill fee, IP-on-payment, 1.5%/month late fee.
+UNUSUAL THRESHOLDS: Net-90, unlimited revisions, no kill fee, IP-before-payment, blanket indemnification.
+PRIORITY NEGOTIATION TARGETS: Payment terms and schedule, IP transfer timing, kill fee/cancellation protection.`,
+
+  insurance: `INSURANCE MODE — Focus on policy and claims risks.
+
+RED FLAGS (8 priority items):
+1. Pre-existing condition exclusions — STANDARD: defined list of exclusions with clear criteria; UNUSUAL: vague "any pre-existing condition" language with no definition of the lookback period
+2. Subrogation rights — STANDARD: insurer can recover from third parties after paying a claim; UNUSUAL: subrogation waiver required by contract (may conflict with other agreements you sign)
+3. Claim reporting deadline — STANDARD: 30–90 days to report; UNUSUAL: 24–72 hours notice required even for non-emergency claims; RED FLAG: failure to report on time voids coverage
+4. Cancellation terms — STANDARD: 30-day notice of cancellation by either party; UNUSUAL: insurer can cancel mid-term for "material misrepresentation" broadly defined
+5. Automatic renewal with premium increase — STANDARD: annual renewal with 30-day notice of rate changes; UNUSUAL: rate can increase without notice at renewal
+6. Coverage exclusions — STANDARD: named exclusions for intentional acts, war, nuclear events; UNUSUAL: broad exclusions for "acts of God," "unforeseen circumstances" without definition
+7. Duty to cooperate — STANDARD: reasonable cooperation in claims investigation; UNUSUAL: insurer can deny claim if they determine you didn't cooperate "fully" (undefined)
+8. Pro-rata vs. short-rate cancellation — STANDARD: pro-rata refund if you cancel early; UNUSUAL: short-rate (penalty-based) refund that returns less than proportional premium
+
+STANDARD BENCHMARKS: 30-day cancellation notice, defined exclusions, 90-day claim window, pro-rata refunds.
+UNUSUAL THRESHOLDS: 24-hour claim reporting, vague exclusions, short-rate cancellation, broad cooperation requirements.
+PRIORITY NEGOTIATION TARGETS: Claim reporting windows, exclusion definitions, cancellation refund method.`,
+
+  saas_subscription: `SAAS/SUBSCRIPTION MODE — Focus on software and subscription agreement risks.
+
+RED FLAGS (8 priority items):
+1. Auto-renewal notice period — STANDARD: 30-day notice to cancel before auto-renewal; UNUSUAL: 60-day notice; RED FLAG: 90+ day notice required to avoid binding renewal
+2. Unilateral price changes — STANDARD: price fixed for term, increases with 30-day notice at renewal; UNUSUAL: price can increase mid-term with 30 days notice; RED FLAG: immediate price changes at vendor's discretion
+3. Data ownership — STANDARD: your data remains yours; UNUSUAL: vendor claims licence to use your data for product improvement without opt-out; RED FLAG: vendor owns aggregated or derived data from your usage
+4. Data portability / export — STANDARD: export your data in standard formats at any time; UNUSUAL: data export only available at termination with 30-day window; RED FLAG: no data export at all after contract ends
+5. SLA and uptime — STANDARD: 99.9% uptime guarantee with service credits; UNUSUAL: SLA only covers "scheduled" downtime; RED FLAG: no SLA or uptime commitment at all
+6. Termination for convenience — STANDARD: either party can terminate with 30 days notice; UNUSUAL: only vendor can terminate for convenience; RED FLAG: no termination right for user, locked in for full term
+7. Usage limits and overage — STANDARD: defined limits with notification before overage charges; UNUSUAL: charges apply automatically above limit without notification; RED FLAG: unlimited liability for overage consumption
+8. Indemnification for data breach — STANDARD: vendor indemnifies you for breaches caused by their security failures; UNUSUAL: you indemnify vendor for any data breach regardless of cause
+
+STANDARD BENCHMARKS: 30-day cancellation, 99.9% uptime, user-owned data, standard-format export, mutual indemnity.
+UNUSUAL THRESHOLDS: 90-day notice, mid-term price hikes, no SLA, vendor-owned derived data, no data export.
+PRIORITY NEGOTIATION TARGETS: Auto-renewal notice, price increase terms, data ownership/portability, SLA credits.`,
+
+  small_business: `SMALL BUSINESS/VENDOR MODE — Focus on B2B commercial contract risks.
+
+RED FLAGS (8 priority items):
+1. Payment terms — STANDARD: Net-30; UNUSUAL: Net-60; RED FLAG: Net-90 or payment contingent on client's client paying (back-to-back payment clause)
+2. Liability cap — STANDARD: capped at total fees paid in the last 12 months; UNUSUAL: liability capped below contract value; RED FLAG: no liability cap (unlimited exposure)
+3. Exclusivity clause — STANDARD: non-exclusive engagement; UNUSUAL: exclusive supplier requirement prevents working with competitors; RED FLAG: exclusivity with no minimum purchase guarantee
+4. Warranty scope — STANDARD: 30–90 day warranty against defects; UNUSUAL: "as-is" disclaimer with no warranty; RED FLAG: warranty that covers vendor's interests but not buyer's remedies
+5. Price adjustment rights — STANDARD: fixed price for contract term, renegotiation at renewal; UNUSUAL: vendor can increase prices mid-term with 30-day notice; RED FLAG: unilateral price adjustment at any time
+6. Minimum purchase obligations — STANDARD: no minimum or clearly stated volume discount thresholds; UNUSUAL: binding minimum order quantities with penalties for shortfall
+7. Termination penalty — STANDARD: no penalty for termination with 30-day notice; UNUSUAL: early termination fee equal to remaining contract value; RED FLAG: no right to terminate at all
+8. Intellectual property — STANDARD: deliverables assigned to buyer upon payment; UNUSUAL: vendor retains ownership of custom work and only licenses it; RED FLAG: vendor can revoke licence if any payment is disputed
+
+STANDARD BENCHMARKS: Net-30, 12-month liability cap, non-exclusive, fixed-price term, 30-day exit, buyer-owned custom deliverables.
+UNUSUAL THRESHOLDS: Net-90, no liability cap, exclusive without minimums, mid-term price hikes, no termination right.
+PRIORITY NEGOTIATION TARGETS: Payment terms, liability cap, IP ownership, termination rights.`,
 };
 
 const SYSTEM_PROMPT = `You are an elite contract advocate with the skills of a top-tier contract attorney, risk auditor, and negotiation expert. Your role is to protect ordinary people from bad contract decisions and help them negotiate better terms.
@@ -115,8 +165,44 @@ ${preferencesText}
 CONTRACT TEXT:
 ${contractText}
 
-Provide your analysis as a JSON object with this exact structure:
+CRITICAL OUTPUT INSTRUCTIONS:
+1. Emit "riskFlags" FIRST in your JSON — before "summary", "keyTerms", and all other fields. This ensures the most important content is never truncated.
+2. If you run out of output space, truncate the summary or keyTerms — NEVER truncate riskFlags.
+3. Find ALL risk flags in the contract. Do not stop at 3 or 5. A complex contract should have 8–15 flags.
+4. For every riskFlag with isStandard: true, include a "standardNote" field: one sentence explaining what benchmark makes it standard (e.g. "30-day termination notice is the industry norm for SaaS contracts").
+5. For every riskFlag with isStandard: false, include an "unusualNote" field: one sentence explaining why it stands out vs. the norm (e.g. "90-day notice heavily favours the vendor — most SaaS contracts use 30 days").
+
+Provide your analysis as a JSON object with this exact structure (riskFlags MUST come first):
 {
+  "riskFlags": [
+    {
+      "title": "Short descriptive title",
+      "severity": "Low | Medium | High",
+      "explanation": "Plain English explanation of why this is risky",
+      "clauseQuote": "Exact short quote from the contract (max 100 words)",
+      "clauseReference": "Section number or heading reference",
+      "confidence": 0.0 to 1.0,
+      "isStandard": true/false (whether this is commonly seen in this contract type),
+      "standardNote": "REQUIRED if isStandard=true: one sentence on what makes it standard",
+      "unusualNote": "REQUIRED if isStandard=false: one sentence on why it's unusual vs the norm",
+      "negotiation": {
+        "whatItDoes": "What this clause actually does",
+        "whyItsRisky": "Why it's problematic for the signer",
+        "suggestedChangePlain": "Plain English version of a fairer clause",
+        "suggestedChangeFormal": "Formal legal language alternative (optional)",
+        "negotiationScript": "What to say: 'I'm okay signing if we adjust X to Y...'"
+      }
+    }
+  ],
+  "verdict": {
+    "riskScore": 0-100 (0 = very safe, 100 = do not sign),
+    "verdict": "Safe | Caution | High Risk | Do Not Sign",
+    "topRisks": [
+      {"title": "Risk title", "clauseReference": "Section X", "severity": "High"}
+    ],
+    "negotiationPriorities": ["First thing to negotiate", "Second priority", "Third priority"],
+    "reasoning": "2-3 sentence explanation of the score and verdict, grounded in contract text"
+  },
   "summary": {
     "whatItIs": "Plain English description of the contract type and purpose",
     "partiesInvolved": ["Party 1 name/role", "Party 2 name/role"],
@@ -131,24 +217,6 @@ Provide your analysis as a JSON object with this exact structure:
       "notes": "Any important context"
     }
   ],
-  "riskFlags": [
-    {
-      "title": "Short descriptive title",
-      "severity": "Low | Medium | High",
-      "explanation": "Plain English explanation of why this is risky",
-      "clauseQuote": "Exact short quote from the contract (max 100 words)",
-      "clauseReference": "Section number or heading reference",
-      "confidence": 0.0 to 1.0,
-      "isStandard": true/false (whether this is commonly seen in this contract type),
-      "negotiation": {
-        "whatItDoes": "What this clause actually does",
-        "whyItsRisky": "Why it's problematic for the signer",
-        "suggestedChangePlain": "Plain English version of a fairer clause",
-        "suggestedChangeFormal": "Formal legal language alternative (optional)",
-        "negotiationScript": "What to say: 'I'm okay signing if we adjust X to Y...'"
-      }
-    }
-  ],
   "clarifyingQuestions": [
     {
       "id": "q1",
@@ -156,15 +224,6 @@ Provide your analysis as a JSON object with this exact structure:
       "options": ["Option 1", "Option 2"]
     }
   ],
-  "verdict": {
-    "riskScore": 0-100 (0 = very safe, 100 = do not sign),
-    "verdict": "Safe | Caution | High Risk | Do Not Sign",
-    "topRisks": [
-      {"title": "Risk title", "clauseReference": "Section X", "severity": "High"}
-    ],
-    "negotiationPriorities": ["First thing to negotiate", "Second priority", "Third priority"],
-    "reasoning": "2-3 sentence explanation of the score and verdict, grounded in contract text"
-  },
   "overallAssessment": "A 2-3 sentence overall assessment answering 'Should I sign this?' Include specific recommendations.",
   "contractType": "lease | employment | freelance | nda | service | purchase | insurance | subscription | other"
 }
@@ -203,7 +262,7 @@ export async function analyzeContract(
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
-    max_completion_tokens: 4096,
+    max_completion_tokens: 6000,
   });
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -221,6 +280,8 @@ export async function analyzeContract(
         clauseReference: r.clauseReference || r.reference || "See contract",
         confidence: typeof r.confidence === "number" ? Math.max(0, Math.min(1, r.confidence)) : 0.7,
         isStandard: r.isStandard,
+        standardNote: r.standardNote || undefined,
+        unusualNote: r.unusualNote || undefined,
         negotiation: r.negotiation ? {
           whatItDoes: r.negotiation.whatItDoes || "",
           whyItsRisky: r.negotiation.whyItsRisky || "",
@@ -418,23 +479,115 @@ function mergeAnalysisResults(
   };
 }
 
+// ============================================
+// Validation Pass — Score Confirmation
+// ============================================
+
+async function validateAndAdjustScore(
+  contractText: string,
+  result: AnalysisResult & { contractType?: string }
+): Promise<{ confirmedScore: number; adjustmentReason: string | null }> {
+  if (!result.verdict) return { confirmedScore: 0, adjustmentReason: null };
+
+  const topFlagTitles = result.riskFlags
+    .slice(0, 3)
+    .map(f => `- ${f.title} (${f.severity})`)
+    .join("\n");
+  const preview = contractText.slice(0, 8000);
+  const originalScore = result.verdict.riskScore;
+
+  const prompt = `You are a contract risk validator. A primary AI assigned a risk score of ${originalScore}/100 to this contract.
+
+TOP 3 RISK FLAGS IDENTIFIED:
+${topFlagTitles}
+
+CONTRACT EXCERPT (first 8000 chars):
+${preview}
+
+Task: Review the risk score of ${originalScore}/100. Respond ONLY with JSON:
+{
+  "confirmedScore": <integer 0-100>,
+  "adjustmentReason": "<one sentence explaining any change, or null if score is confirmed>"
+}
+
+Rules:
+- Your confirmedScore must be within ±15 of the original score (${Math.max(0, originalScore - 15)} to ${Math.min(100, originalScore + 15)}).
+- If the score seems accurate, return the same score with adjustmentReason: null.
+- Only adjust if you see a clear mismatch between the risk flags and the score.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: FAST_MODEL,
+      messages: [
+        { role: "system", content: "You are a contract risk validator. Respond only with valid JSON." },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 256,
+    });
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+    const raw = typeof parsed.confirmedScore === "number" ? parsed.confirmedScore : originalScore;
+    // Cap adjustment at ±15
+    const confirmedScore = Math.max(
+      Math.max(0, originalScore - 15),
+      Math.min(Math.min(100, originalScore + 15), raw)
+    );
+    return {
+      confirmedScore,
+      adjustmentReason: parsed.adjustmentReason || null,
+    };
+  } catch (err) {
+    console.warn("Validation pass failed, using original score:", err);
+    return { confirmedScore: originalScore, adjustmentReason: null };
+  }
+}
+
 export async function analyzeContractChunked(
   contractText: string,
   industryMode: IndustryMode = "general",
   riskPreferences?: RiskPreferences
 ): Promise<AnalysisResult & { contractType?: string }> {
   const chunks = splitIntoChunks(contractText);
+  let result: AnalysisResult & { contractType?: string };
+
   if (chunks.length === 1) {
-    return analyzeContract(contractText, industryMode, riskPreferences);
+    result = await analyzeContract(contractText, industryMode, riskPreferences);
+  } else {
+    console.log(`Analyzing contract in ${chunks.length} chunks (${contractText.length} chars total)`);
+    const results = await Promise.all(
+      chunks.map((chunk, i) => {
+        const header = chunks.length > 1 ? `[PART ${i + 1} OF ${chunks.length}]\n` : "";
+        return analyzeContract(header + chunk, industryMode, riskPreferences);
+      })
+    );
+    result = mergeAnalysisResults(results, industryMode);
   }
-  console.log(`Analyzing contract in ${chunks.length} chunks (${contractText.length} chars total)`);
-  const results = await Promise.all(
-    chunks.map((chunk, i) => {
-      const header = chunks.length > 1 ? `[PART ${i + 1} OF ${chunks.length}]\n` : "";
-      return analyzeContract(header + chunk, industryMode, riskPreferences);
-    })
-  );
-  return mergeAnalysisResults(results, industryMode);
+
+  // Validation pass: confirm or adjust the risk score with a fast secondary check
+  if (result.verdict) {
+    const { confirmedScore, adjustmentReason } = await validateAndAdjustScore(contractText, result);
+    if (confirmedScore !== result.verdict.riskScore) {
+      console.log(`Validation pass adjusted score: ${result.verdict.riskScore} → ${confirmedScore}. Reason: ${adjustmentReason}`);
+      const verdictLabel: Verdict["verdict"] =
+        confirmedScore >= 76 ? "Do Not Sign" :
+        confirmedScore >= 51 ? "High Risk" :
+        confirmedScore >= 26 ? "Caution" : "Safe";
+      result = {
+        ...result,
+        verdict: {
+          ...result.verdict,
+          riskScore: confirmedScore,
+          verdict: verdictLabel,
+          reasoning: adjustmentReason
+            ? `${result.verdict.reasoning} [Score adjusted: ${adjustmentReason}]`
+            : result.verdict.reasoning,
+        },
+      };
+    }
+  }
+
+  return result;
 }
 
 export async function explainClause(selectedText: string): Promise<string> {
