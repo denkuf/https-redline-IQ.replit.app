@@ -92,7 +92,8 @@ export async function registerRoutes(
       const riskPreferences = req.body.riskPreferences ? JSON.parse(req.body.riskPreferences) : undefined;
       const userContext = req.body.context ? String(req.body.context).trim() : undefined;
       const jurisdiction = req.body.jurisdiction ? String(req.body.jurisdiction).trim() : undefined;
-      const situation = req.body.situation ? JSON.parse(req.body.situation) : undefined;
+      let situation: { role?: string; leverage?: string; concern?: string } | undefined;
+      try { situation = req.body.situation ? JSON.parse(req.body.situation) : undefined; } catch { situation = undefined; }
 
       // Collect all uploaded files (multi-file "files" field + legacy single "file" field)
       const fileFields = req.files as Record<string, Express.Multer.File[]> | undefined;
@@ -180,18 +181,21 @@ export async function registerRoutes(
 
       const userContext = context && typeof context === "string" ? context.trim() : undefined;
       const jurisdictionStr = jurisdiction && typeof jurisdiction === "string" ? jurisdiction.trim() : undefined;
+      const situationParsed = situation && typeof situation === "object" && !Array.isArray(situation)
+        ? situation as { role?: string; leverage?: string; concern?: string }
+        : undefined;
 
       const name = generateContractName(text);
 
       // Build AI prompt context block
       const contextParts: string[] = [];
       if (userContext) contextParts.push(`[USER CONTEXT]\n${userContext}`);
-      if (jurisdictionStr || situation) {
+      if (jurisdictionStr || situationParsed) {
         const sitLines: string[] = [];
         if (jurisdictionStr) sitLines.push(`Jurisdiction: ${jurisdictionStr}`);
-        if (situation?.role) sitLines.push(`Role: ${situation.role}`);
-        if (situation?.leverage) sitLines.push(`Leverage: ${situation.leverage}`);
-        if (situation?.concern) sitLines.push(`Top concern: ${situation.concern}`);
+        if (situationParsed?.role) sitLines.push(`Role: ${situationParsed.role}`);
+        if (situationParsed?.leverage) sitLines.push(`Leverage: ${situationParsed.leverage}`);
+        if (situationParsed?.concern) sitLines.push(`Top concern: ${situationParsed.concern}`);
         contextParts.push(`[USER SITUATION]\n${sitLines.join("\n")}`);
       }
       contextParts.push(`[CONTRACT TEXT]\n${text}`);
