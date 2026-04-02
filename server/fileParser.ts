@@ -8,9 +8,10 @@ export interface ParseResult {
 }
 
 function assessOcrQuality(text: string): boolean {
-  if (!text || text.length < 100) return true;
+  if (!text || text.length < 500) return false;
   const chars = text.length;
   const words = text.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w));
+  if (words.length < 20) return false;
   const wordsPerThousandChars = (words.length / chars) * 1000;
   return wordsPerThousandChars < 30;
 }
