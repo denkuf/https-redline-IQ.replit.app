@@ -90,6 +90,7 @@ export async function registerRoutes(
       const { buffer, mimetype, originalname } = req.file;
       const industryMode = (req.body.industryMode || "general") as IndustryMode;
       const riskPreferences = req.body.riskPreferences ? JSON.parse(req.body.riskPreferences) : undefined;
+      const userContext = req.body.context ? String(req.body.context).trim() : undefined;
       
       // Parse file to extract text
       const extractedText = await parseFile(buffer, mimetype, originalname);
@@ -98,6 +99,11 @@ export async function registerRoutes(
       }
 
       const name = generateContractName(extractedText, originalname);
+
+      // Combine user context with contract text for AI — context goes first so it frames the analysis
+      const textForAnalysis = userContext
+        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${extractedText}`
+        : extractedText;
 
       // Create contract with pending status (userId for data isolation)
       const contract = await storage.createContract({
@@ -110,7 +116,7 @@ export async function registerRoutes(
       });
 
       // Start analysis in background
-      analyzeContract(extractedText, industryMode, riskPreferences)
+      analyzeContract(textForAnalysis, industryMode, riskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {
@@ -133,12 +139,19 @@ export async function registerRoutes(
   app.post("/api/contracts", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { text, industryMode = "general", riskPreferences } = req.body;
+      const { text, industryMode = "general", riskPreferences, context } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ message: "Contract text is required" });
       }
 
+      const userContext = context && typeof context === "string" ? context.trim() : undefined;
+
       const name = generateContractName(text);
+
+      // Combine user context with contract text for AI — context goes first so it frames the analysis
+      const textForAnalysis = userContext
+        ? `[USER CONTEXT]\n${userContext}\n\n[CONTRACT TEXT]\n${text}`
+        : text;
 
       const contract = await storage.createContract({
         name,
@@ -149,7 +162,7 @@ export async function registerRoutes(
       });
 
       // Start analysis in background
-      analyzeContract(text, industryMode as IndustryMode, riskPreferences)
+      analyzeContract(textForAnalysis, industryMode as IndustryMode, riskPreferences)
         .then(async (result) => {
           await storage.updateContractAnalysis(contract.id, result, "completed");
           if (result.contractType) {

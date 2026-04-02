@@ -16,12 +16,14 @@ export default function Home() {
       file, 
       text, 
       industryMode, 
-      riskPreferences 
+      riskPreferences,
+      context,
     }: { 
       file: File | null; 
       text: string | null; 
       industryMode: IndustryMode;
       riskPreferences?: RiskPreferences;
+      context?: string;
     }) => {
       if (file) {
         const formData = new FormData();
@@ -29,6 +31,9 @@ export default function Home() {
         formData.append("industryMode", industryMode);
         if (riskPreferences) {
           formData.append("riskPreferences", JSON.stringify(riskPreferences));
+        }
+        if (context) {
+          formData.append("context", context);
         }
         const response = await fetch("/api/contracts/upload", {
           method: "POST",
@@ -43,7 +48,8 @@ export default function Home() {
         const response = await apiRequest("POST", "/api/contracts", { 
           text, 
           industryMode, 
-          riskPreferences 
+          riskPreferences,
+          context,
         });
         return response.json();
       }
@@ -65,8 +71,8 @@ export default function Home() {
     },
   });
 
-  const handleUpload = (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences) => {
-    uploadMutation.mutate({ file, text, industryMode, riskPreferences });
+  const handleUpload = (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => {
+    uploadMutation.mutate({ file, text, industryMode, riskPreferences, context });
   };
 
   const features = [

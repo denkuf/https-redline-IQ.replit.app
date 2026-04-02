@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Image, X, Settings2, Camera } from "lucide-react";
+import { Upload, FileText, Image, X, Settings2, Camera, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IndustryModeSelector } from "./IndustryModeSelector";
@@ -10,7 +11,7 @@ import { RiskPreferencesForm } from "./RiskPreferencesForm";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
 interface FileUploadProps {
-  onUpload: (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences) => void;
+  onUpload: (file: File | null, text: string | null, industryMode: IndustryMode, riskPreferences?: RiskPreferences, context?: string) => void;
   isLoading?: boolean;
 }
 
@@ -37,6 +38,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
   const [industryMode, setIndustryMode] = useState<IndustryMode>("general");
   const [riskPreferences, setRiskPreferences] = useState<RiskPreferences>(defaultPreferences);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [context, setContext] = useState("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -70,10 +72,11 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
 
   const handleSubmit = () => {
     const prefs = showAdvanced ? riskPreferences : undefined;
+    const ctx = context.trim() || undefined;
     if ((activeTab === "upload" || activeTab === "camera") && selectedFile) {
-      onUpload(selectedFile, null, industryMode, prefs);
+      onUpload(selectedFile, null, industryMode, prefs, ctx);
     } else if (activeTab === "paste" && pastedText.trim()) {
-      onUpload(null, pastedText.trim(), industryMode, prefs);
+      onUpload(null, pastedText.trim(), industryMode, prefs, ctx);
     }
   };
 
@@ -232,7 +235,27 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </TabsContent>
       </Tabs>
 
-      <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="mt-6">
+      <div className="mt-6 space-y-2">
+        <Label htmlFor="context-field" className="flex items-center gap-1.5 text-sm font-medium">
+          Your Context
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Textarea
+          id="context-field"
+          placeholder="Describe your situation to improve analysis accuracy — e.g. &quot;This is a freelance web dev contract from a new client. I'm based in California and want to know if the payment terms and IP clauses are fair.&quot;"
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+          className="min-h-[80px] resize-none text-sm"
+          disabled={isLoading}
+          data-testid="textarea-context"
+        />
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          The AI uses this alongside the contract text to give you more relevant, personalised analysis.
+        </p>
+      </div>
+
+      <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="mt-4">
         <CollapsibleTrigger asChild>
           <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-advanced-options">
             <Settings2 className="h-4 w-4 mr-2" />
