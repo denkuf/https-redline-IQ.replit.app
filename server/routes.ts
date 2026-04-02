@@ -139,13 +139,14 @@ export async function registerRoutes(
       contextParts.push(`[CONTRACT TEXT]\n${combinedText}`);
       const textForAnalysis = contextParts.join("\n\n");
 
-      // Create contract record
+      // Create contract record (persist riskPreferences so re-analysis can reuse them)
       const contract = await storage.createContract({
         name,
         extractedText: combinedText,
         originalFileName: primaryFilename,
         industryMode,
         jurisdiction: jurisdiction || null,
+        riskPreferences: riskPreferences || null,
         status: "analyzing",
         userId,
       });
@@ -206,6 +207,7 @@ export async function registerRoutes(
         extractedText: text,
         industryMode,
         jurisdiction: jurisdictionStr || null,
+        riskPreferences: riskPreferences || null,
         status: "analyzing",
         userId,
       });

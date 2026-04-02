@@ -225,24 +225,8 @@ export default function ContractAnalysis() {
             </div>
           </div>
         </div>
-        {!isAnalyzing && analysis && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => shareMutation.mutate()}
-              disabled={shareMutation.isPending}
-              data-testid="button-share-contract"
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Share</span>
-            </Button>
-            <Link href={`/compare/${contractId}`}>
-              <Button variant="outline" size="sm" data-testid="button-compare-contract">
-                <GitCompare className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Compare</span>
-              </Button>
-            </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isAnalyzing && contract.extractedText && (
             <div className="relative">
               <Button
                 variant="outline"
@@ -296,6 +280,25 @@ export default function ContractAnalysis() {
                 </div>
               )}
             </div>
+          )}
+          {!isAnalyzing && analysis && (
+            <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => shareMutation.mutate()}
+              disabled={shareMutation.isPending}
+              data-testid="button-share-contract"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Share</span>
+            </Button>
+            <Link href={`/compare/${contractId}`}>
+              <Button variant="outline" size="sm" data-testid="button-compare-contract">
+                <GitCompare className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Compare</span>
+              </Button>
+            </Link>
             <div className="relative">
               <Button
                 variant="outline"
@@ -337,8 +340,9 @@ export default function ContractAnalysis() {
                 <span className="sm:hidden">Pack</span>
               </Button>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {isAnalyzing ? (
