@@ -1,4 +1,7 @@
-import * as pdfParse from "pdf-parse";
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const pdfParse: (buffer: Buffer, options?: object) => Promise<{ text: string; numpages: number }> =
+  _require("pdf-parse/lib/pdf-parse.js");
 import * as mammoth from "mammoth";
 import { extractTextFromImage } from "./ai";
 
