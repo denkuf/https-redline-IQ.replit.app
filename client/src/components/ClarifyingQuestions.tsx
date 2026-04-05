@@ -14,13 +14,26 @@ interface ClarifyingQuestionsProps {
 }
 
 export function ClarifyingQuestions({ questions, onAnswer, isSubmitting }: ClarifyingQuestionsProps) {
+  // Normalize questions to ensure unique keys (AI sometimes emits duplicate IDs like q1,q2,q1,q2)
+  const normalizedQuestions = questions.map((q, index) => ({
+    ...q,
+    _key: `${q.id}-${index}`,
+  }));
+
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const handleSubmit = () => {
-    onAnswer(answers);
+    // Map back to original IDs for the parent handler
+    const mapped: Record<string, string> = {};
+    normalizedQuestions.forEach((q) => {
+      if (answers[q._key] !== undefined) {
+        mapped[q.id] = answers[q._key];
+      }
+    });
+    onAnswer(mapped);
   };
 
-  const allAnswered = questions.every((q) => answers[q.id]?.trim());
+  const allAnswered = normalizedQuestions.every((q) => answers[q._key]?.trim());
 
   if (!questions.length) return null;
 
@@ -37,19 +50,19 @@ export function ClarifyingQuestions({ questions, onAnswer, isSubmitting }: Clari
           Help us provide a more accurate analysis by answering these questions:
         </p>
 
-        {questions.map((q, index) => (
-          <div key={q.id} className="space-y-3" data-testid={`clarifying-question-${index}`}>
+        {normalizedQuestions.map((q, index) => (
+          <div key={q._key} className="space-y-3" data-testid={`clarifying-question-${index}`}>
             <Label className="text-base font-medium">{q.question}</Label>
             
             {q.options ? (
               <RadioGroup
-                value={answers[q.id] || ""}
-                onValueChange={(value) => setAnswers({ ...answers, [q.id]: value })}
+                value={answers[q._key] || ""}
+                onValueChange={(value) => setAnswers({ ...answers, [q._key]: value })}
               >
                 {q.options.map((option, i) => (
                   <div key={i} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option} id={`${q.id}-${i}`} />
-                    <Label htmlFor={`${q.id}-${i}`} className="font-normal cursor-pointer">
+                    <RadioGroupItem value={option} id={`${q._key}-${i}`} />
+                    <Label htmlFor={`${q._key}-${i}`} className="font-normal cursor-pointer">
                       {option}
                     </Label>
                   </div>
@@ -57,10 +70,10 @@ export function ClarifyingQuestions({ questions, onAnswer, isSubmitting }: Clari
               </RadioGroup>
             ) : (
               <Input
-                value={answers[q.id] || ""}
-                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                value={answers[q._key] || ""}
+                onChange={(e) => setAnswers({ ...answers, [q._key]: e.target.value })}
                 placeholder="Your answer..."
-                data-testid={`input-answer-${q.id}`}
+                data-testid={`input-answer-${q._key}`}
               />
             )}
           </div>

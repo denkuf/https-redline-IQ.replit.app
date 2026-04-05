@@ -874,6 +874,38 @@ export async function registerRoutes(
     }
   });
 
+  // Share link (shortcut route used by contract detail page)
+  app.post("/api/contracts/:id/share", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(contractId, userId);
+      if (!contract || !contract.analysis) {
+        return res.status(404).json({ message: "Contract not found or not analyzed" });
+      }
+      const analysis = contract.analysis as any;
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+      const summary = {
+        contractName: contract.name,
+        verdict: analysis.verdict?.verdict || "Unknown",
+        riskScore: analysis.verdict?.riskScore || 0,
+        topRisks: analysis.verdict?.topRisks?.map((r: any) => r.title) || [],
+        keyPoints: [
+          analysis.summary?.whatItIs || "",
+          ...(analysis.summary?.userObligations?.slice(0, 2) || []),
+        ].filter(Boolean),
+        recommendation: analysis.verdict?.reasoning || analysis.overallAssessment || "",
+      };
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const link = await storage.createShareLink({ userId, contractId, token, summary, expiresAt });
+      res.status(201).json({ shareUrl: `/shared/${link.token}` });
+    } catch (error) {
+      console.error("Error creating share link:", error);
+      res.status(500).json({ message: "Failed to create share link" });
+    }
+  });
+
   // Share-Safe Summary (requires auth)
   app.get("/api/contracts/:id/share-summary", isAuthenticated, async (req: Request, res: Response) => {
     try {
