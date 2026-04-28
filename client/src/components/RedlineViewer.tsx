@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -94,13 +95,44 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set(redlines.map(r => r.id)));
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
   const { toast } = useToast();
 
+  // Keep selectedIds in sync when redlines change (e.g. after regeneration)
+  useEffect(() => {
+    setSelectedIds(new Set(redlines.map(r => r.id)));
+  }, [redlines]);
+
+  const allSelected = selectedIds.size === redlines.length;
+  const noneSelected = selectedIds.size === 0;
+
+  const toggleId = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(redlines.map(r => r.id)));
+  const deselectAll = () => setSelectedIds(new Set());
+
   const handleDownloadDocx = async () => {
+    if (noneSelected) {
+      toast({ title: "No edits selected", description: "Select at least one edit to include in the download.", variant: "destructive" });
+      return;
+    }
     setDownloading(true);
     try {
-      const res = await fetch(`/api/contracts/${contractId}/export/redlines`, { credentials: "include" });
+      const body: { ids?: number[] } = {};
+      if (!allSelected) body.ids = Array.from(selectedIds);
+      const res = await fetch(`/api/contracts/${contractId}/export/redlines`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -222,14 +254,21 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               variant="outline"
               size="sm"
               onClick={handleDownloadDocx}
-              disabled={downloading}
+              disabled={downloading || noneSelected}
               data-testid="button-download-docx"
               className="h-8 text-xs"
+              title={noneSelected ? "Select at least one edit to download" : undefined}
             >
               {downloading ? (
                 <><Download className="h-3.5 w-3.5 mr-1.5 animate-bounce" />Downloading...</>
               ) : (
-                <><Download className="h-3.5 w-3.5 mr-1.5" />Download .docx</>
+                <>
+                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                  Download .docx
+                  {!allSelected && selectedIds.size > 0 && (
+                    <span className="ml-1 text-muted-foreground">({selectedIds.size}/{redlines.length})</span>
+                  )}
+                </>
               )}
             </Button>
             <Button
@@ -370,20 +409,50 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
 
           {/* Edit summary (numbered list for all redlines) */}
           <div className="px-5 pb-8 space-y-2 border-t mt-2 pt-4">
-            <h3 className="text-sm font-semibold mb-3">Edit Summary</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">
+                Edit Summary
+                {!allSelected && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {selectedIds.size} of {redlines.length} selected for download
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={allSelected ? deselectAll : selectAll}
+                  className="text-xs text-primary hover:underline"
+                  data-testid="button-select-all-redlines"
+                >
+                  {allSelected ? "Deselect all" : "Select all"}
+                </button>
+              </div>
+            </div>
             {redlines.map((r) => (
-              <button
+              <div
                 key={r.id}
-                onClick={() => scrollToRedline(r.id)}
-                className={`w-full text-left rounded-md px-3 py-2 text-xs border transition-colors ${activeRedline === r.id ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/50"}`}
+                className={`flex items-start gap-2.5 rounded-md px-3 py-2 text-xs border transition-colors ${activeRedline === r.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
                 data-testid={`redline-summary-${r.id}`}
               >
-                <span className="font-bold mr-2">[{r.id}]</span>
-                {r.riskFlagTitle && (
-                  <span className="font-medium mr-1">{r.riskFlagTitle} —</span>
-                )}
-                <span className="text-muted-foreground">{r.reason}</span>
-              </button>
+                <Checkbox
+                  id={`include-redline-${r.id}`}
+                  checked={selectedIds.has(r.id)}
+                  onCheckedChange={() => toggleId(r.id)}
+                  className="mt-0.5 shrink-0"
+                  data-testid={`checkbox-include-redline-${r.id}`}
+                  title="Include in download"
+                />
+                <button
+                  onClick={() => scrollToRedline(r.id)}
+                  className="flex-1 text-left"
+                >
+                  <span className={`font-bold mr-2 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>[{r.id}]</span>
+                  {r.riskFlagTitle && (
+                    <span className={`font-medium mr-1 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>{r.riskFlagTitle} —</span>
+                  )}
+                  <span className="text-muted-foreground">{r.reason}</span>
+                </button>
+              </div>
             ))}
           </div>
         </div>

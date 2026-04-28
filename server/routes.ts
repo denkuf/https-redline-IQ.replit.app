@@ -486,7 +486,8 @@ export async function registerRoutes(
   });
 
   // Export redlines as .docx with native Word track changes
-  app.get("/api/contracts/:id/export/redlines", isAuthenticated, async (req: Request, res: Response) => {
+  // POST body: { ids?: number[] } — optional list of redline IDs to include (default: all)
+  app.post("/api/contracts/:id/export/redlines", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const userId = getUserId(req);
@@ -497,9 +498,21 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No redlines available. Generate redlines first." });
       }
 
+      // Optional ID filter — if `ids` is provided and non-empty, only include those redlines
+      const { ids } = req.body as { ids?: unknown };
+      let redlines = contract.analysis.redlines;
+      if (Array.isArray(ids) && ids.length > 0) {
+        const idSet = new Set(ids.map(Number).filter(n => !isNaN(n)));
+        redlines = redlines.filter(r => idSet.has(r.id));
+      }
+
+      if (redlines.length === 0) {
+        return res.status(400).json({ message: "No redlines match the requested IDs." });
+      }
+
       const docxBuffer = await generateRedlineDocx(
         contract.extractedText,
-        contract.analysis.redlines,
+        redlines,
         contract.name
       );
 
