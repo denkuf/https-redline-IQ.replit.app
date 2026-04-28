@@ -1515,6 +1515,14 @@ export async function generateRedlines(
 
   if (actionableFlags.length === 0) return [];
 
+  // Guard: very large contracts may exceed model context limits.
+  // Keep the full text for position resolution, but send a safe-length excerpt to the AI.
+  // 80,000 chars ≈ ~20,000 tokens — well within context window for redlining prompts.
+  const MAX_AI_CONTRACT_CHARS = 80_000;
+  const contractForAI = contractText.length > MAX_AI_CONTRACT_CHARS
+    ? contractText.slice(0, MAX_AI_CONTRACT_CHARS) + "\n[... contract continues — full text used for position resolution ...]"
+    : contractText;
+
   const flagSummaries = actionableFlags.map((f, i) => 
     `${i + 1}. RISK FLAG: "${f.title}"
    Severity: ${f.severity}
@@ -1529,7 +1537,7 @@ export async function generateRedlines(
   const prompt = `You are a contract redlining expert. Your job is to produce tracked-change edits for a legal contract — exactly like a lawyer would mark up a client's contract.
 
 CONTRACT TEXT:
-${contractText}
+${contractForAI}
 
 RISK FLAGS TO ADDRESS (${actionableFlags.length} items):
 ${flagSummaries}

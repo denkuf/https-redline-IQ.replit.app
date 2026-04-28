@@ -103,10 +103,32 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
 
   const handleCopy = () => {
     const clean = buildCleanCopy(contractText, redlines);
-    navigator.clipboard.writeText(clean).then(() => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(clean).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        // Fallback for clipboard write failure
+        fallbackCopy(clean);
+      });
+    } else {
+      fallbackCopy(clean);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch { /* silently fail */ }
+    document.body.removeChild(ta);
   };
 
   const scrollToRedline = (id: number) => {
