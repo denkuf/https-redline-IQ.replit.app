@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { z } from "zod";
 import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause, AnnotatedClause, Redline } from "@shared/schema";
 
 const openai = new OpenAI({
@@ -1568,19 +1569,36 @@ RULES:
   });
 
   const raw = response.choices[0]?.message?.content || "{}";
-  const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed.redlines)) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  // Validate AI response with a typed schema instead of any casts
+  const rawRedlineItemSchema = z.object({
+    originalText: z.string().default(""),
+    replacementText: z.string(),
+    reason: z.string(),
+    riskFlagTitle: z.string().optional(),
+  });
+  const rawResponseSchema = z.object({
+    redlines: z.array(rawRedlineItemSchema),
+  });
+  const parseResult = rawResponseSchema.safeParse(parsed);
+  if (!parseResult.success || parseResult.data.redlines.length === 0) return [];
 
   // Resolve stable character positions server-side to avoid non-deterministic
   // text search in the browser (handles repeated text and whitespace differences).
   const usedRanges: Array<{ start: number; end: number }> = [];
 
-  const resolved = (parsed.redlines as any[])
-    .map((r: any, i: number): Redline | null => {
-      const originalText = String(r.originalText ?? "").trim();
-      const replacementText = String(r.replacementText ?? "").trim();
-      const reason = String(r.reason ?? "").trim();
-      const riskFlagTitle = r.riskFlagTitle ? String(r.riskFlagTitle).trim() : undefined;
+  const resolved = parseResult.data.redlines
+    .map((r, i): Redline | null => {
+      const originalText = r.originalText.trim();
+      const replacementText = r.replacementText.trim();
+      const reason = r.reason.trim();
+      const riskFlagTitle = r.riskFlagTitle?.trim() || undefined;
       if (!replacementText || !reason) return null;
 
       let start: number | undefined;

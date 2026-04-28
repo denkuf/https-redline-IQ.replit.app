@@ -132,7 +132,7 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-4xl flex flex-col p-0 gap-0"
+        className="w-screen max-w-none flex flex-col p-0 gap-0"
         data-testid="redline-viewer"
       >
         {/* Header */}
