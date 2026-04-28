@@ -19,41 +19,21 @@ interface Segment {
   redline?: Redline;
 }
 
+/**
+ * Build inline diff segments using stable server-resolved positions (r.start / r.end).
+ * Only redlines with non-empty originalText AND resolved positions appear inline;
+ * the rest are shown in a fallback section — nothing is dropped.
+ */
 function buildSegments(contractText: string, redlines: Redline[]): Segment[] {
-  // Filter to redlines that have non-empty originalText and can be found in the contract
-  const located: Array<{ redline: Redline; start: number; end: number }> = [];
+  const located = redlines
+    .filter(r => r.originalText && r.originalText.trim() !== "" && r.start !== undefined && r.end !== undefined)
+    .map(r => ({ redline: r, start: r.start!, end: r.end! }))
+    .sort((a, b) => a.start - b.start);
 
-  for (const r of redlines) {
-    if (!r.originalText) continue;
-    const idx = contractText.indexOf(r.originalText);
-    if (idx === -1) {
-      // Try a slightly looser match — first 60 chars (handles minor whitespace differences)
-      const snippet = r.originalText.slice(0, 60).trim();
-      if (!snippet) continue;
-      const looseIdx = contractText.indexOf(snippet);
-      if (looseIdx !== -1) {
-        located.push({ redline: r, start: looseIdx, end: looseIdx + snippet.length });
-      }
-      continue;
-    }
-    located.push({ redline: r, start: idx, end: idx + r.originalText.length });
-  }
-
-  // Sort by position in document; remove overlaps (keep first by position)
-  located.sort((a, b) => a.start - b.start);
-  const deduped: typeof located = [];
-  let cursor = 0;
-  for (const loc of located) {
-    if (loc.start >= cursor) {
-      deduped.push(loc);
-      cursor = loc.end;
-    }
-  }
-
-  // Build segments
   const segments: Segment[] = [];
   let pos = 0;
-  for (const loc of deduped) {
+  for (const loc of located) {
+    if (loc.start < pos) continue; // guard against unexpected overlaps
     if (loc.start > pos) {
       segments.push({ type: "text", content: contractText.slice(pos, loc.start) });
     }
@@ -63,15 +43,23 @@ function buildSegments(contractText: string, redlines: Redline[]): Segment[] {
   if (pos < contractText.length) {
     segments.push({ type: "text", content: contractText.slice(pos) });
   }
-
   return segments;
 }
 
+/**
+ * Build the plain-text copy output including ALL redlines:
+ * - Inline positioned replacements as [DELETED: ...][ADDED: ...]
+ * - Unmatched replacements as [EDIT N – title] blocks
+ * - Pure insertions (no originalText) at the end
+ */
 function buildCleanCopy(contractText: string, redlines: Redline[]): string {
   const segments = buildSegments(contractText, redlines);
-  let output = "";
   const insertions = redlines.filter(r => !r.originalText || r.originalText.trim() === "");
+  const unmatched = redlines.filter(
+    r => r.originalText && r.originalText.trim() !== "" && (r.start === undefined || r.end === undefined)
+  );
 
+  let output = "";
   for (const seg of segments) {
     if (seg.type === "text") {
       output += seg.content;
@@ -80,9 +68,18 @@ function buildCleanCopy(contractText: string, redlines: Redline[]): string {
     }
   }
 
-  // Append pure insertions (missing clauses with empty originalText) at the end
+  if (unmatched.length > 0) {
+    output += "\n\n--- REPLACEMENT EDITS (see contract for location) ---\n";
+    for (const r of unmatched) {
+      output += `\n[EDIT ${r.id}${r.riskFlagTitle ? ` – ${r.riskFlagTitle}` : ""}]\n`;
+      output += `[DELETED: ${r.originalText}]\n`;
+      output += `[ADDED: ${r.replacementText}]\n`;
+      output += `Reason: ${r.reason}\n`;
+    }
+  }
+
   if (insertions.length > 0) {
-    output += "\n\n--- SUGGESTED ADDITIONS ---\n";
+    output += "\n\n--- SUGGESTED ADDITIONS (missing clauses) ---\n";
     for (const r of insertions) {
       output += `\n[ADDED – ${r.riskFlagTitle || "New Clause"}]\n${r.replacementText}\n`;
     }
@@ -94,12 +91,15 @@ function buildCleanCopy(contractText: string, redlines: Redline[]): string {
 export function RedlineViewer({ contractText, redlines, contractName, open, onClose }: RedlineViewerProps) {
   const [copied, setCopied] = useState(false);
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
-  const redlineRefs = useRef<Record<number, HTMLSpanElement | null>>({});
+  const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
 
   const segments = buildSegments(contractText, redlines);
-  // Additions (no original text to locate) shown separately at the bottom
-  const inlineRedlines = redlines.filter(r => r.originalText && r.originalText.trim() !== "");
   const insertionRedlines = redlines.filter(r => !r.originalText || r.originalText.trim() === "");
+  const unmatchedRedlines = redlines.filter(
+    r => r.originalText && r.originalText.trim() !== "" && (r.start === undefined || r.end === undefined)
+  );
+
+  const allIds = redlines.map(r => r.id);
 
   const handleCopy = () => {
     const clean = buildCleanCopy(contractText, redlines);
@@ -116,17 +116,16 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
   };
 
   const navigateRedline = (direction: "prev" | "next") => {
-    const ids = [...inlineRedlines.map(r => r.id), ...insertionRedlines.map(r => r.id)];
-    if (ids.length === 0) return;
+    if (allIds.length === 0) return;
     if (activeRedline === null) {
-      scrollToRedline(ids[0]);
+      scrollToRedline(allIds[0]);
       return;
     }
-    const currentIdx = ids.indexOf(activeRedline);
+    const currentIdx = allIds.indexOf(activeRedline);
     const nextIdx = direction === "next"
-      ? (currentIdx + 1) % ids.length
-      : (currentIdx - 1 + ids.length) % ids.length;
-    scrollToRedline(ids[nextIdx]);
+      ? (currentIdx + 1) % allIds.length
+      : (currentIdx - 1 + allIds.length) % allIds.length;
+    scrollToRedline(allIds[nextIdx]);
   };
 
   return (
@@ -190,11 +189,9 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
         {/* Legend */}
         <div className="flex items-center gap-4 px-4 py-2 bg-muted/30 border-b text-xs shrink-0">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-8 h-0.5 bg-red-500 line-through" />
             <span className="line-through text-red-600 dark:text-red-400">Deleted text</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-8 h-0.5 bg-green-500 underline" />
             <span className="underline text-green-700 dark:text-green-400">Added text</span>
           </span>
           <span className="text-muted-foreground ml-auto">
@@ -228,10 +225,7 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
                     {r.replacementText}
                   </span>
                   {/* Edit number badge */}
-                  <sup
-                    className="ml-0.5 text-[10px] font-bold text-primary cursor-pointer select-none"
-                    title={r.reason}
-                  >
+                  <sup className="ml-0.5 text-[10px] font-bold text-primary cursor-pointer select-none" title={r.reason}>
                     [{r.id}]
                   </sup>
                   {/* Tooltip on active */}
@@ -245,6 +239,38 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
               );
             })}
           </div>
+
+          {/* Unmatched replacements — originalText present but position couldn't be resolved */}
+          {unmatchedRedlines.length > 0 && (
+            <div className="px-5 pb-5 space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground border-t pt-4">
+                Additional Replacements
+              </h3>
+              {unmatchedRedlines.map((r) => (
+                <div
+                  key={r.id}
+                  ref={(el) => { redlineRefs.current[r.id] = el; }}
+                  className={`rounded-md border p-3 space-y-2 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : "border-border"}`}
+                  onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
+                  data-testid={`redline-edit-${r.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">[{r.id}]</Badge>
+                    {r.riskFlagTitle && (
+                      <span className="text-xs text-muted-foreground">{r.riskFlagTitle}</span>
+                    )}
+                  </div>
+                  <p className="font-mono text-xs text-red-600 dark:text-red-400 line-through bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">
+                    {r.originalText}
+                  </p>
+                  <p className="font-mono text-xs text-green-700 dark:text-green-400 underline bg-green-50 dark:bg-green-900/30 rounded px-2 py-1">
+                    {r.replacementText}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{r.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Insertion-only redlines (missing clauses with no original text) */}
           {insertionRedlines.length > 0 && (
@@ -277,7 +303,7 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
             </div>
           )}
 
-          {/* Edit summary sidebar (numbered list) */}
+          {/* Edit summary (numbered list for all redlines) */}
           <div className="px-5 pb-8 space-y-2 border-t mt-2 pt-4">
             <h3 className="text-sm font-semibold mb-3">Edit Summary</h3>
             {redlines.map((r) => (

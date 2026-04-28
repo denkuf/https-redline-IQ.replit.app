@@ -134,6 +134,9 @@ export const redlineSchema = z.object({
   replacementText: z.string(),
   reason: z.string(),
   riskFlagTitle: z.string().optional(),
+  // Stable character-level position in the original contract text (resolved server-side)
+  start: z.number().optional(),
+  end: z.number().optional(),
 });
 
 export type Redline = z.infer<typeof redlineSchema>;

@@ -345,8 +345,9 @@ export async function registerRoutes(
       if (!contract) return res.status(404).json({ message: "Contract not found" });
       if (!contract.analysis) return res.status(400).json({ message: "No analysis available — analyse the contract first" });
 
-      // Return cached redlines if already generated
-      if (contract.analysis.redlines && contract.analysis.redlines.length > 0) {
+      // Return cached redlines if already generated (including empty array = no edits needed).
+      // Distinguish from undefined (= never generated) to avoid repeated AI calls.
+      if (contract.analysis.redlines !== undefined && contract.analysis.redlines !== null) {
         return res.json({ redlines: contract.analysis.redlines });
       }
 

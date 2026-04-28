@@ -1528,23 +1528,22 @@ export async function generateRedlines(
   const prompt = `You are a contract redlining expert. Your job is to produce tracked-change edits for a legal contract — exactly like a lawyer would mark up a client's contract.
 
 CONTRACT TEXT:
-${contractText.slice(0, 8000)}${contractText.length > 8000 ? "\n[... contract continues ...]" : ""}
+${contractText}
 
 RISK FLAGS TO ADDRESS (${actionableFlags.length} items):
 ${flagSummaries}
 
 INSTRUCTIONS:
 For each risk flag, produce ONE redline edit:
-1. "originalText": Copy the EXACT text from the contract that should be deleted or replaced. This must be an exact substring of the contract text (copy-paste precisely, max 200 words). If the clause has no text to remove (e.g. a missing clause), use an empty string "".
+1. "originalText": Copy the EXACT text from the contract that should be deleted or replaced. This must be a verbatim substring of the contract text above (copy-paste precisely, max 200 words). If the clause has no text to remove (e.g. a missing clause), use an empty string "".
 2. "replacementText": Write the improved replacement text using professional legal language. This is what will appear as the green "added" text. For missing clauses, write the new clause to be inserted. Keep it concise (max 200 words).
 3. "reason": One sentence explaining why this specific edit protects the signer (e.g. "Limits your liability exposure to fees paid under this agreement").
 4. "riskFlagTitle": The exact title of the risk flag this redline addresses.
 
 RULES:
-- "originalText" MUST be an exact verbatim copy of text in the contract — do not paraphrase or summarise
-- If you cannot find exact text to quote, pick the closest matching sentence(s) from the contract
+- "originalText" MUST be a verbatim copy of text in the contract above — do not paraphrase or summarise
 - "replacementText" must be professional legal language, not bullet points or plain English summary
-- Skip any risk flag where you cannot produce a meaningful replacement
+- Every actionable risk flag must produce a redline — do not skip any flag listed above
 - Respond ONLY with valid JSON
 
 {
@@ -1572,14 +1571,51 @@ RULES:
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed.redlines)) return [];
 
-  return (parsed.redlines as any[])
+  // Resolve stable character positions server-side to avoid non-deterministic
+  // text search in the browser (handles repeated text and whitespace differences).
+  const usedRanges: Array<{ start: number; end: number }> = [];
+
+  const resolved = (parsed.redlines as any[])
     .map((r: any, i: number): Redline | null => {
       const originalText = String(r.originalText ?? "").trim();
       const replacementText = String(r.replacementText ?? "").trim();
       const reason = String(r.reason ?? "").trim();
       const riskFlagTitle = r.riskFlagTitle ? String(r.riskFlagTitle).trim() : undefined;
       if (!replacementText || !reason) return null;
-      return { id: i + 1, originalText, replacementText, reason, riskFlagTitle };
+
+      let start: number | undefined;
+      let end: number | undefined;
+
+      if (originalText) {
+        // Try exact match first
+        let pos = contractText.indexOf(originalText);
+
+        // If not found, try case-insensitive / whitespace-normalized search
+        if (pos === -1) {
+          const normalised = originalText.replace(/\s+/g, " ").toLowerCase();
+          const contractNorm = contractText.replace(/\s+/g, " ").toLowerCase();
+          pos = contractNorm.indexOf(normalised);
+        }
+
+        if (pos !== -1) {
+          // Deduplicate: skip if another redline already occupies this range
+          const end_ = pos + originalText.length;
+          const overlaps = usedRanges.some(
+            (u) => !(end_ <= u.start || pos >= u.end)
+          );
+          if (!overlaps) {
+            start = pos;
+            end = end_;
+            usedRanges.push({ start, end });
+          }
+          // If overlaps, still keep the redline but without position — it will
+          // appear in the unmatched fallback section rather than be dropped.
+        }
+      }
+
+      return { id: i + 1, originalText, replacementText, reason, riskFlagTitle, start, end };
     })
     .filter((r): r is Redline => r !== null);
+
+  return resolved;
 }
