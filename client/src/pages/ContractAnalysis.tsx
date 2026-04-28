@@ -70,6 +70,7 @@ export default function ContractAnalysis() {
   const [showRedlineViewer, setShowRedlineViewer] = useState(false);
   const [redlines, setRedlines] = useState<Redline[]>([]);
   const [isGeneratingRedlines, setIsGeneratingRedlines] = useState(false);
+  const [redlinesLoaded, setRedlinesLoaded] = useState(false);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -178,13 +179,14 @@ export default function ContractAnalysis() {
   const handleGenerateRedlines = async () => {
     if (!contract?.analysis) return;
     // If we already have cached redlines from the analysis, use them
-    if (contract.analysis.redlines && contract.analysis.redlines.length > 0) {
+    if (contract.analysis.redlines !== undefined && contract.analysis.redlines !== null) {
       setRedlines(contract.analysis.redlines);
+      setRedlinesLoaded(true);
       setShowRedlineViewer(true);
       return;
     }
-    // If we already generated them in this session
-    if (redlines.length > 0) {
+    // If we already fetched redlines this session (even if empty), re-use them
+    if (redlinesLoaded) {
       setShowRedlineViewer(true);
       return;
     }
@@ -193,6 +195,7 @@ export default function ContractAnalysis() {
       const res = await apiRequest("POST", `/api/contracts/${contractId}/redlines`);
       const data = await res.json();
       setRedlines(data.redlines || []);
+      setRedlinesLoaded(true);
       setShowRedlineViewer(true);
     } catch {
       toast({ title: "Failed to generate redlines", description: "Please try again.", variant: "destructive" });

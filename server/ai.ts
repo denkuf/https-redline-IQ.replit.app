@@ -1587,30 +1587,26 @@ RULES:
       let end: number | undefined;
 
       if (originalText) {
-        // Try exact match first
-        let pos = contractText.indexOf(originalText);
-
-        // If not found, try case-insensitive / whitespace-normalized search
-        if (pos === -1) {
-          const normalised = originalText.replace(/\s+/g, " ").toLowerCase();
-          const contractNorm = contractText.replace(/\s+/g, " ").toLowerCase();
-          pos = contractNorm.indexOf(normalised);
-        }
+        // Exact substring match only — normalised-string offsets are NOT safe
+        // to reuse as positions in the original text (whitespace changes lengths).
+        const pos = contractText.indexOf(originalText);
 
         if (pos !== -1) {
-          // Deduplicate: skip if another redline already occupies this range
           const end_ = pos + originalText.length;
-          const overlaps = usedRanges.some(
-            (u) => !(end_ <= u.start || pos >= u.end)
-          );
-          if (!overlaps) {
+          // Validate the slice matches exactly before accepting the position
+          const sliceMatches = contractText.slice(pos, end_) === originalText;
+          const overlaps = usedRanges.some((u) => !(end_ <= u.start || pos >= u.end));
+
+          if (sliceMatches && !overlaps) {
             start = pos;
             end = end_;
             usedRanges.push({ start, end });
           }
-          // If overlaps, still keep the redline but without position — it will
-          // appear in the unmatched fallback section rather than be dropped.
+          // If overlapping or validation failed, position stays undefined →
+          // redline appears in the fallback section and is included in copy output.
         }
+        // If pos === -1: originalText not found verbatim. Keep start/end undefined →
+        // will render in the "Additional Replacements" fallback section.
       }
 
       return { id: i + 1, originalText, replacementText, reason, riskFlagTitle, start, end };
