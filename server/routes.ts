@@ -508,9 +508,8 @@ export async function registerRoutes(
         redlines = redlines.filter(r => idSet.has(r.id));
       }
 
-      if (redlines.length === 0) {
-        return res.status(400).json({ message: "No redlines match the requested IDs." });
-      }
+      // If filtering results in an empty list, generateRedlineDocx still returns
+      // a valid .docx containing the unmodified contract text with no tracked changes.
 
       const docxBuffer = await generateRedlineDocx(
         contract.extractedText,

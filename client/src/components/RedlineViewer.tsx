@@ -119,12 +119,11 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const deselectAll = () => setSelectedIds(new Set());
 
   const handleDownloadDocx = async () => {
-    if (noneSelected) {
-      toast({ title: "No edits selected", description: "Select at least one edit to include in the download.", variant: "destructive" });
-      return;
-    }
     setDownloading(true);
     try {
+      // When all are selected, send no filter (include everything — fast path).
+      // When a partial or empty selection is active, send the explicit ID list.
+      // An empty ids array produces a clean docx with no tracked changes.
       const body: { ids?: number[] } = {};
       if (!allSelected) body.ids = Array.from(selectedIds);
       const res = await fetch(`/api/contracts/${contractId}/export/redlines`, {
@@ -254,18 +253,20 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               variant="outline"
               size="sm"
               onClick={handleDownloadDocx}
-              disabled={downloading || noneSelected}
+              disabled={downloading}
               data-testid="button-download-docx"
               className="h-8 text-xs"
-              title={noneSelected ? "Select at least one edit to download" : undefined}
+              title={noneSelected ? "Downloads a clean copy with no tracked changes" : undefined}
             >
               {downloading ? (
                 <><Download className="h-3.5 w-3.5 mr-1.5 animate-bounce" />Downloading...</>
+              ) : noneSelected ? (
+                <><Download className="h-3.5 w-3.5 mr-1.5" />Download clean copy</>
               ) : (
                 <>
                   <Download className="h-3.5 w-3.5 mr-1.5" />
                   Download .docx
-                  {!allSelected && selectedIds.size > 0 && (
+                  {!allSelected && (
                     <span className="ml-1 text-muted-foreground">({selectedIds.size}/{redlines.length})</span>
                   )}
                 </>
