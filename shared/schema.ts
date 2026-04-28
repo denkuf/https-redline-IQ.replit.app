@@ -57,6 +57,16 @@ export const riskFlagSchema = z.object({
 
 export type RiskFlag = z.infer<typeof riskFlagSchema>;
 
+// Missing clause schema — clauses that should be present but are absent
+export const missingClauseSchema = z.object({
+  clauseName: z.string(),
+  whyItMatters: z.string(),
+  severity: z.enum(["Low", "Medium", "High"]),
+  sampleLanguage: z.string(),
+});
+
+export type MissingClause = z.infer<typeof missingClauseSchema>;
+
 // Key term schema
 export const keyTermSchema = z.object({
   category: z.string(),
@@ -110,6 +120,7 @@ export const analysisResultSchema = z.object({
   summary: summarySchema,
   keyTerms: z.array(keyTermSchema),
   riskFlags: z.array(riskFlagSchema),
+  missingClauses: z.array(missingClauseSchema).optional(),
   clarifyingQuestions: z.array(clarifyingQuestionSchema).optional(),
   overallAssessment: z.string().optional(),
   verdict: verdictSchema.optional(),

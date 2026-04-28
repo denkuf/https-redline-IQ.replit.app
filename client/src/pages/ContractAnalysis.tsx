@@ -8,6 +8,7 @@ import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
+import { MissingClauses } from "@/components/MissingClauses";
 import { ClarifyingQuestions } from "@/components/ClarifyingQuestions";
 import { ContractViewer } from "@/components/ContractViewer";
 import { OverallAssessment } from "@/components/OverallAssessment";
@@ -422,9 +423,9 @@ export default function ContractAnalysis() {
               <TabsTrigger value="risks" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-risks">
                 <AlertTriangle className="h-4 w-4 hidden sm:block sm:mr-1" />
                 Risks
-                {analysis.riskFlags?.length > 0 && (
+                {((analysis.riskFlags?.length || 0) + (analysis.missingClauses?.length || 0)) > 0 && (
                   <span className="ml-1 bg-destructive text-destructive-foreground text-xs px-1 py-0.5 rounded-full leading-none">
-                    {analysis.riskFlags.length}
+                    {(analysis.riskFlags?.length || 0) + (analysis.missingClauses?.length || 0)}
                   </span>
                 )}
               </TabsTrigger>
@@ -445,12 +446,15 @@ export default function ContractAnalysis() {
               <KeyTermsTable keyTerms={analysis.keyTerms || []} />
             </TabsContent>
 
-            <TabsContent value="risks">
+            <TabsContent value="risks" className="space-y-4">
               <RiskFlags 
                 riskFlags={analysis.riskFlags || []} 
                 contractType={contract.type || "general"}
                 industryMode={contract.industryMode || "general"}
               />
+              {analysis.missingClauses && analysis.missingClauses.length > 0 && (
+                <MissingClauses missingClauses={analysis.missingClauses} />
+              )}
             </TabsContent>
 
             <TabsContent value="heatmap">

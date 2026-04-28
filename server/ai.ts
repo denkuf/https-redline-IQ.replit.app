@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences } from "@shared/schema";
+import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -147,6 +147,7 @@ Respond ONLY with valid JSON matching the required schema. Do not include any ot
 
 function buildAnalysisPrompt(contractText: string, industryMode: IndustryMode = "general", riskPreferences?: RiskPreferences): string {
   const playbook = INDUSTRY_PLAYBOOKS[industryMode] || INDUSTRY_PLAYBOOKS.general;
+  const missingChecklist = MISSING_CLAUSE_CHECKLISTS[industryMode] || MISSING_CLAUSE_CHECKLISTS.general;
   
   const preferencesText = riskPreferences ? `
 USER'S RISK PREFERENCES:
@@ -155,6 +156,8 @@ USER'S RISK PREFERENCES:
 - Can Tolerate Arbitration: ${riskPreferences.tolerateArbitration ? 'YES - arbitration is acceptable' : 'NO - flag arbitration clauses'}
 - Wants Easy Termination: ${riskPreferences.wantEasyTermination ? 'YES - flag difficult termination clauses' : 'No strong preference'}
 Adjust risk scoring and negotiation priorities based on these preferences.` : '';
+
+  const missingClauseChecklistText = missingChecklist.map((c, i) => `${i + 1}. ${c}`).join("\n");
 
   return `Analyze this contract and provide a comprehensive analysis with negotiation suggestions.
 
@@ -171,6 +174,21 @@ CRITICAL OUTPUT INSTRUCTIONS:
 3. Find ALL risk flags in the contract. Do not stop at 3 or 5. A complex contract should have 8–15 flags.
 4. For every riskFlag with isStandard: true, include a "standardNote" field: one sentence explaining what benchmark makes it standard (e.g. "30-day termination notice is the industry norm for SaaS contracts").
 5. For every riskFlag with isStandard: false, include an "unusualNote" field: one sentence explaining why it stands out vs. the norm (e.g. "90-day notice heavily favours the vendor — most SaaS contracts use 30 days").
+
+MISSING CLAUSE DETECTION:
+After identifying risk flags, check whether each of the following clauses exists ANYWHERE in the contract text. Search carefully — a clause may be brief or embedded in another section.
+For each clause that is genuinely ABSENT (not covered at all), add it to the "missingClauses" array.
+DO NOT flag a clause as missing if it is present even partially — only flag complete absences.
+
+Clauses to check for ${industryMode.toUpperCase()} contracts:
+${missingClauseChecklistText}
+
+Severity guidance for missing clauses:
+- High: Absence directly increases financial, legal, or personal risk to the signer
+- Medium: Absence creates ambiguity or removes an important protection
+- Low: Absence is a minor gap that is unlikely to cause harm but is worth noting
+
+For the riskScore: each High-severity missing clause should add approximately 5-8 points; each Medium adds 2-3 points. Factor this into the verdict score.
 
 Provide your analysis as a JSON object with this exact structure (riskFlags MUST come first):
 {
@@ -194,6 +212,14 @@ Provide your analysis as a JSON object with this exact structure (riskFlags MUST
       }
     }
   ],
+  "missingClauses": [
+    {
+      "clauseName": "Name of the missing clause (e.g. Limitation of Liability)",
+      "whyItMatters": "Plain English: why does the user need this clause and what risk does its absence create?",
+      "severity": "High | Medium | Low",
+      "sampleLanguage": "A ready-to-propose 1-2 sentence sample clause the user can add or request"
+    }
+  ],
   "verdict": {
     "riskScore": 0-100 (0 = very safe, 100 = do not sign),
     "verdict": "Safe | Caution | High Risk | Do Not Sign",
@@ -201,7 +227,7 @@ Provide your analysis as a JSON object with this exact structure (riskFlags MUST
       {"title": "Risk title", "clauseReference": "Section X", "severity": "High"}
     ],
     "negotiationPriorities": ["First thing to negotiate", "Second priority", "Third priority"],
-    "reasoning": "2-3 sentence explanation of the score and verdict, grounded in contract text"
+    "reasoning": "2-3 sentence explanation of the score and verdict, grounded in contract text. If critical clauses are missing, mention that in the reasoning."
   },
   "summary": {
     "whatItIs": "Plain English description of the contract type and purpose",
@@ -236,6 +262,75 @@ RISK SCORE GUIDELINES:
 
 For each High or Medium risk, MUST include a negotiation object with specific suggestions.`;
 }
+
+// Industry-specific missing clause checklists
+// Each entry: "Clause Name — one-line description for the AI"
+const MISSING_CLAUSE_CHECKLISTS: Record<IndustryMode, string[]> = {
+  general: [
+    "Limitation of Liability — a cap on how much either party can owe the other",
+    "Dispute Resolution — how disagreements are handled (arbitration, mediation, or courts)",
+    "Governing Law — which jurisdiction's laws apply to the contract",
+    "Amendment / Modification Process — how the contract terms can be changed",
+    "Termination Rights — how and when either party can end the contract",
+    "Severability — what happens if one clause is found unenforceable",
+  ],
+  rent_lease: [
+    "Security Deposit Return Timeline — when and how the deposit is returned and itemised",
+    "Maintenance Responsibilities — who is responsible for which repairs",
+    "Early Termination Rights — tenant's right to exit early and on what terms",
+    "Renewal / Non-Renewal Notice Requirements — how to notify intent to renew or vacate",
+    "Landlord Entry Notice — required advance notice before landlord may enter the property",
+    "Utilities Responsibility — which utilities the tenant pays versus the landlord",
+    "Pet / Subletting Policy — rules around pets or subletting even if prohibited",
+  ],
+  employment: [
+    "Compensation & Benefits — salary, bonuses, equity, and benefits clearly defined",
+    "Job Duties / Role Scope — what the employee is expected to perform",
+    "Termination Notice Period — how much notice either party must provide",
+    "Severance Terms — what the employee receives if terminated without cause",
+    "Intellectual Property Assignment — who owns work created on the job",
+    "Dispute Resolution — how employment disputes are handled",
+    "Performance Review / Promotion Process — criteria and timeline for evaluation",
+  ],
+  freelance: [
+    "Payment Schedule — when and how payments will be made (milestone or net-terms)",
+    "Scope of Work — exactly what deliverables are expected",
+    "IP / Work-for-Hire — who owns the final work product upon payment",
+    "Kill Fee / Cancellation Protection — what the contractor receives if client cancels",
+    "Revision Policy — how many rounds of revisions are included at no extra cost",
+    "Limitation of Liability — a cap on the contractor's exposure to client claims",
+    "Late Payment Remedy — interest or fees if the client pays late",
+    "Expenses / Reimbursement — whether client reimburses out-of-pocket costs",
+  ],
+  insurance: [
+    "Covered Perils List — what events or losses are explicitly covered",
+    "Exclusions List — what is explicitly excluded from coverage",
+    "Claim Reporting Procedure — how and when to file a claim",
+    "Cancellation Terms — how either party can cancel and what notice is required",
+    "Premium Adjustment Terms — how and when premiums can change",
+    "Dispute Resolution for Claims — how to challenge a denied or reduced claim",
+    "Subrogation Rights — whether the insurer can pursue third parties after paying a claim",
+  ],
+  saas_subscription: [
+    "Data Ownership — confirmation that the user's data belongs to the user",
+    "Data Portability / Export Rights — right to export data on termination",
+    "SLA / Uptime Commitment — guaranteed service availability and remedies",
+    "Security Obligations — vendor's duty to protect user data and notify of breaches",
+    "Termination for Convenience — user's right to cancel and on what terms",
+    "Auto-Renewal Notice Period — advance notice required to avoid unwanted renewal",
+    "Price Lock / Increase Notice — whether prices can change during the term and with what notice",
+  ],
+  small_business: [
+    "Payment Terms — when invoices are due and any late payment penalties",
+    "Limitation of Liability — a cap on the vendor's or buyer's maximum exposure",
+    "IP / Deliverable Ownership — who owns custom work once payment is made",
+    "Warranty / Defect Remedy — what happens if the deliverable is defective",
+    "Termination Rights — how either party can exit the contract",
+    "Dispute Resolution — how commercial disagreements are handled",
+    "Confidentiality / NDA — protection of business information shared during the engagement",
+    "Indemnification Scope — who indemnifies whom and for what",
+  ],
+};
 
 const EXPLAIN_PROMPT = `Explain this contract clause in plain English. Be concise but thorough. The user selected this text:
 
@@ -314,6 +409,16 @@ export async function analyzeContract(
       reasoning: parsed.verdict.reasoning || "Contract-based reasoning not available.",
     } : undefined;
 
+    // Validate and sanitize missing clauses
+    const validatedMissingClauses: MissingClause[] = (parsed.missingClauses || [])
+      .map((m: any) => ({
+        clauseName: m.clauseName || m.name || "",
+        whyItMatters: m.whyItMatters || m.why || "",
+        severity: ["Low", "Medium", "High"].includes(m.severity) ? m.severity : "Medium",
+        sampleLanguage: m.sampleLanguage || m.sample || "",
+      }))
+      .filter((m: MissingClause) => m.clauseName && m.whyItMatters && m.sampleLanguage);
+
     // Validate and sanitize the response
     const result: AnalysisResult & { contractType?: string } = {
       summary: {
@@ -329,6 +434,7 @@ export async function analyzeContract(
         notes: t.notes,
       })),
       riskFlags: validatedRiskFlags,
+      missingClauses: validatedMissingClauses,
       clarifyingQuestions: parsed.clarifyingQuestions?.map((q: any, i: number) => ({
         id: q.id || `q${i + 1}`,
         question: q.question || "",
@@ -464,6 +570,23 @@ function mergeAnalysisResults(
     }
   }
 
+  // Missing clauses: deduplicate by normalized clauseName, keep highest severity
+  const missingClauseMap = new Map<string, MissingClause>();
+  const severityRank = { High: 3, Medium: 2, Low: 1 };
+  for (const r of results) {
+    for (const mc of (r.missingClauses || [])) {
+      const key = mc.clauseName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const existing = missingClauseMap.get(key);
+      if (!existing || (severityRank[mc.severity] ?? 0) > (severityRank[existing.severity] ?? 0)) {
+        missingClauseMap.set(key, mc);
+      }
+    }
+  }
+  // Sort: High → Medium → Low
+  const allMissingClauses = Array.from(missingClauseMap.values()).sort(
+    (a, b) => (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0)
+  );
+
   // Contract type: first non-null
   const contractType = results.map(r => r.contractType).find(Boolean);
 
@@ -471,6 +594,7 @@ function mergeAnalysisResults(
     summary,
     keyTerms: allKeyTerms,
     riskFlags: allFlags,
+    missingClauses: allMissingClauses,
     clarifyingQuestions: allQuestions,
     overallAssessment: highestRiskResult.overallAssessment,
     verdict: mergedVerdict,
@@ -493,6 +617,11 @@ async function validateAndAdjustScore(
     .slice(0, 3)
     .map(f => `- ${f.title} (${f.severity})`)
     .join("\n");
+  const missingClauseSummary = (result.missingClauses || []).length > 0
+    ? "\nMISSING CLAUSES IDENTIFIED:\n" + result.missingClauses!
+        .map(m => `- ${m.clauseName} (${m.severity} severity)`)
+        .join("\n")
+    : "";
   const preview = contractText.slice(0, 8000);
   const originalScore = result.verdict.riskScore;
 
@@ -500,6 +629,7 @@ async function validateAndAdjustScore(
 
 TOP 3 RISK FLAGS IDENTIFIED:
 ${topFlagTitles}
+${missingClauseSummary}
 
 CONTRACT EXCERPT (first 8000 chars):
 ${preview}

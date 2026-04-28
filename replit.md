@@ -51,6 +51,7 @@ Redline IQ is a contract analysis web application designed to empower individual
     -   **Recurring Obligation Tracker**: Manages subscriptions, insurance, memberships, and other life commitments with due dates and auto-renew/exit window warnings.
     -   **Personal Guardian Mode**: Background monitoring categorizing obligations as Urgent, Due Soon, or Safe.
     -   **Legal & Life Memory Engine**: Auto-saves user preferences and context from advocate chat.
+    -   **Missing Clause Detection**: AI proactively identifies critical protections absent from the contract (e.g. no limitation of liability, no IP ownership clause). Industry-aware checklists (7 modes). Each missing clause shown with severity badge, plain-English explanation of the risk, and ready-to-paste sample language. Displayed in the Risks tab below risk flags. Missing clauses factored into risk score (+5-8 pts per High, +2-3 pts per Medium). Merged and deduplicated across chunked analysis.
     -   **Bonus Features**: "Explain Like I'm 12," "What If? Simulator," "Contract Expiry Radar," "Is This Normal?," "Share-Safe Summary," and "Trust Seal."
     -   **Notification System**: In-app notifications for contract deadlines and obligation reminders. Bell icon with unread count in header. Generate reminders from upcoming deadlines.
     -   **Contract Comparison**: Side-by-side diff view comparing contract versions. Upload revised versions and see risk score changes, added/removed clauses.
