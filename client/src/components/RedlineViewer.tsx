@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Redline } from "@shared/schema";
 
@@ -22,6 +22,8 @@ interface Segment {
   redline?: Redline;
 }
 
+type EditStatus = "accepted" | "rejected" | "pending";
+
 /**
  * Build inline diff segments using stable server-resolved positions (r.start / r.end).
  * Only redlines with non-empty originalText AND resolved positions appear inline;
@@ -36,7 +38,7 @@ function buildSegments(contractText: string, redlines: Redline[]): Segment[] {
   const segments: Segment[] = [];
   let pos = 0;
   for (const loc of located) {
-    if (loc.start < pos) continue; // guard against unexpected overlaps
+    if (loc.start < pos) continue;
     if (loc.start > pos) {
       segments.push({ type: "text", content: contractText.slice(pos, loc.start) });
     }
@@ -50,15 +52,22 @@ function buildSegments(contractText: string, redlines: Redline[]): Segment[] {
 }
 
 /**
- * Build the plain-text copy output including ALL redlines:
- * - Inline positioned replacements as [DELETED: ...][ADDED: ...]
- * - Unmatched replacements as [EDIT N – title] blocks
- * - Pure insertions (no originalText) at the end
+ * Build the plain-text copy output including only accepted redlines.
+ * If no redlines are accepted, returns empty string.
  */
-function buildCleanCopy(contractText: string, redlines: Redline[]): string {
-  const segments = buildSegments(contractText, redlines);
-  const insertions = redlines.filter(r => !r.originalText || r.originalText.trim() === "");
-  const unmatched = redlines.filter(
+function buildCleanCopy(
+  contractText: string,
+  redlines: Redline[],
+  statusMap: Record<number, EditStatus>
+): string {
+  const acceptedIds = new Set(redlines.filter(r => statusMap[r.id] === "accepted").map(r => r.id));
+  const acceptedRedlines = redlines.filter(r => acceptedIds.has(r.id));
+
+  if (acceptedRedlines.length === 0) return "";
+
+  const segments = buildSegments(contractText, acceptedRedlines);
+  const insertions = acceptedRedlines.filter(r => !r.originalText || r.originalText.trim() === "");
+  const unmatched = acceptedRedlines.filter(
     r => r.originalText && r.originalText.trim() !== "" && (r.start === undefined || r.end === undefined)
   );
 
@@ -96,6 +105,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const [downloading, setDownloading] = useState(false);
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set(redlines.map(r => r.id)));
+  const [statusMap, setStatusMap] = useState<Record<number, EditStatus>>({});
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
   const { toast } = useToast();
 
@@ -160,15 +170,34 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   );
 
   const allIds = redlines.map(r => r.id);
+  const acceptedCount = redlines.filter(r => statusMap[r.id] === "accepted").length;
+
+  const getStatus = (id: number): EditStatus => statusMap[id] ?? "pending";
+
+  const toggleAccept = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setStatusMap(prev => ({
+      ...prev,
+      [id]: prev[id] === "accepted" ? "pending" : "accepted",
+    }));
+  };
+
+  const toggleReject = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setStatusMap(prev => ({
+      ...prev,
+      [id]: prev[id] === "rejected" ? "pending" : "rejected",
+    }));
+  };
 
   const handleCopy = () => {
-    const clean = buildCleanCopy(contractText, redlines);
+    const clean = buildCleanCopy(contractText, redlines, statusMap);
+    if (!clean) return;
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(clean).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }).catch(() => {
-        // Fallback for clipboard write failure
         fallbackCopy(clean);
       });
     } else {
@@ -208,6 +237,49 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
       ? (currentIdx + 1) % allIds.length
       : (currentIdx - 1 + allIds.length) % allIds.length;
     scrollToRedline(allIds[nextIdx]);
+  };
+
+  const statusBadge = (id: number) => {
+    const status = getStatus(id);
+    if (status === "accepted") return (
+      <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700" data-testid={`status-accepted-${id}`}>
+        Accepted
+      </Badge>
+    );
+    if (status === "rejected") return (
+      <Badge className="text-[10px] px-1.5 py-0 bg-gray-100 text-gray-500 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600" data-testid={`status-rejected-${id}`}>
+        Rejected
+      </Badge>
+    );
+    return null;
+  };
+
+  const acceptRejectButtons = (id: number) => {
+    const status = getStatus(id);
+    return (
+      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className={`h-6 w-6 rounded-full transition-colors ${status === "accepted" ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400" : "text-muted-foreground hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-900/20"}`}
+          onClick={(e) => toggleAccept(id, e)}
+          title={status === "accepted" ? "Undo accept" : "Accept this edit"}
+          data-testid={`button-accept-${id}`}
+        >
+          <ThumbsUp className="h-3 w-3" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className={`h-6 w-6 rounded-full transition-colors ${status === "rejected" ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400" : "text-muted-foreground hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"}`}
+          onClick={(e) => toggleReject(id, e)}
+          title={status === "rejected" ? "Undo reject" : "Reject this edit"}
+          data-testid={`button-reject-${id}`}
+        >
+          <ThumbsDown className="h-3 w-3" />
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -276,13 +348,15 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               variant="outline"
               size="sm"
               onClick={handleCopy}
+              disabled={acceptedCount === 0}
               data-testid="button-copy-redlined-text"
               className="h-8 text-xs"
+              title={acceptedCount === 0 ? "Accept at least one edit to copy" : `Copy ${acceptedCount} accepted edit${acceptedCount !== 1 ? "s" : ""}`}
             >
               {copied ? (
                 <><Check className="h-3.5 w-3.5 mr-1.5 text-green-600" />Copied</>
               ) : (
-                <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy Redlined Text</>
+                <><Copy className="h-3.5 w-3.5 mr-1.5" />Copy{acceptedCount > 0 ? ` (${acceptedCount})` : ""}</>
               )}
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} data-testid="button-close-redlines">
@@ -299,6 +373,9 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           <span className="flex items-center gap-1.5">
             <span className="underline text-green-700 dark:text-green-400">Added text</span>
           </span>
+          <span className="flex items-center gap-1.5 ml-2 text-muted-foreground">
+            <ThumbsUp className="h-3 w-3" /> Accept &nbsp;/&nbsp; <ThumbsDown className="h-3 w-3" /> Reject each edit
+          </span>
           <span className="text-muted-foreground ml-auto">
             {redlines.length} edit{redlines.length !== 1 ? "s" : ""}
           </span>
@@ -313,11 +390,12 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               }
               const r = seg.redline!;
               const isActive = activeRedline === r.id;
+              const status = getStatus(r.id);
               return (
                 <span
                   key={i}
                   ref={(el) => { redlineRefs.current[r.id] = el; }}
-                  className={`relative cursor-pointer transition-colors rounded-sm ${isActive ? "outline outline-2 outline-primary/60 outline-offset-1" : ""}`}
+                  className={`relative cursor-pointer transition-colors rounded-sm ${isActive ? "outline outline-2 outline-primary/60 outline-offset-1" : ""} ${status === "accepted" ? "bg-green-50 dark:bg-green-950/30" : status === "rejected" ? "opacity-40" : ""}`}
                   onClick={() => setActiveRedline(isActive ? null : r.id)}
                   data-testid={`redline-edit-${r.id}`}
                 >
@@ -335,9 +413,13 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
                   </sup>
                   {/* Tooltip on active */}
                   {isActive && (
-                    <span className="absolute top-full left-0 z-10 mt-1 bg-popover border text-popover-foreground text-xs rounded-md px-3 py-2 shadow-md max-w-xs leading-snug">
-                      <strong className="block mb-1 text-primary">Edit {r.id}{r.riskFlagTitle ? ` — ${r.riskFlagTitle}` : ""}</strong>
-                      {r.reason}
+                    <span className="absolute top-full left-0 z-10 mt-1 bg-popover border text-popover-foreground text-xs rounded-md px-3 py-2 shadow-md max-w-xs leading-snug space-y-2">
+                      <strong className="block text-primary">Edit {r.id}{r.riskFlagTitle ? ` — ${r.riskFlagTitle}` : ""}</strong>
+                      <span className="block">{r.reason}</span>
+                      <span className="flex items-center gap-1 pt-1">
+                        {acceptRejectButtons(r.id)}
+                        {statusBadge(r.id)}
+                      </span>
                     </span>
                   )}
                 </span>
@@ -351,29 +433,36 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               <h3 className="text-sm font-semibold text-muted-foreground border-t pt-4">
                 Additional Replacements
               </h3>
-              {unmatchedRedlines.map((r) => (
-                <div
-                  key={r.id}
-                  ref={(el) => { redlineRefs.current[r.id] = el; }}
-                  className={`rounded-md border p-3 space-y-2 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : "border-border"}`}
-                  onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
-                  data-testid={`redline-edit-${r.id}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">[{r.id}]</Badge>
-                    {r.riskFlagTitle && (
-                      <span className="text-xs text-muted-foreground">{r.riskFlagTitle}</span>
-                    )}
+              {unmatchedRedlines.map((r) => {
+                const status = getStatus(r.id);
+                return (
+                  <div
+                    key={r.id}
+                    ref={(el) => { redlineRefs.current[r.id] = el; }}
+                    className={`rounded-md border p-3 space-y-2 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-950/20" : status === "rejected" ? "border-border opacity-40" : "border-border"}`}
+                    onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
+                    data-testid={`redline-edit-${r.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">[{r.id}]</Badge>
+                        {r.riskFlagTitle && (
+                          <span className="text-xs text-muted-foreground">{r.riskFlagTitle}</span>
+                        )}
+                        {statusBadge(r.id)}
+                      </div>
+                      {acceptRejectButtons(r.id)}
+                    </div>
+                    <p className="font-mono text-xs text-red-600 dark:text-red-400 line-through bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">
+                      {r.originalText}
+                    </p>
+                    <p className="font-mono text-xs text-green-700 dark:text-green-400 underline bg-green-50 dark:bg-green-900/30 rounded px-2 py-1">
+                      {r.replacementText}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{r.reason}</p>
                   </div>
-                  <p className="font-mono text-xs text-red-600 dark:text-red-400 line-through bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">
-                    {r.originalText}
-                  </p>
-                  <p className="font-mono text-xs text-green-700 dark:text-green-400 underline bg-green-50 dark:bg-green-900/30 rounded px-2 py-1">
-                    {r.replacementText}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{r.reason}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -383,28 +472,35 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               <h3 className="text-sm font-semibold text-muted-foreground border-t pt-4">
                 Suggested Additions (missing clauses)
               </h3>
-              {insertionRedlines.map((r) => (
-                <div
-                  key={r.id}
-                  ref={(el) => { redlineRefs.current[r.id] = el; }}
-                  className={`rounded-md border p-3 space-y-1 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20"}`}
-                  onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
-                  data-testid={`redline-insertion-${r.id}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs text-green-700 dark:text-green-400 border-green-400">
-                      Add [{r.id}]
-                    </Badge>
-                    {r.riskFlagTitle && (
-                      <span className="text-xs text-muted-foreground">{r.riskFlagTitle}</span>
-                    )}
+              {insertionRedlines.map((r) => {
+                const status = getStatus(r.id);
+                return (
+                  <div
+                    key={r.id}
+                    ref={(el) => { redlineRefs.current[r.id] = el; }}
+                    className={`rounded-md border p-3 space-y-1 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-500 bg-green-100 dark:border-green-600 dark:bg-green-950/40" : status === "rejected" ? "border-border bg-muted opacity-40" : "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20"}`}
+                    onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
+                    data-testid={`redline-insertion-${r.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs text-green-700 dark:text-green-400 border-green-400">
+                          Add [{r.id}]
+                        </Badge>
+                        {r.riskFlagTitle && (
+                          <span className="text-xs text-muted-foreground">{r.riskFlagTitle}</span>
+                        )}
+                        {statusBadge(r.id)}
+                      </div>
+                      {acceptRejectButtons(r.id)}
+                    </div>
+                    <p className="font-mono text-sm text-green-700 dark:text-green-400 underline leading-relaxed">
+                      {r.replacementText}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{r.reason}</p>
                   </div>
-                  <p className="font-mono text-sm text-green-700 dark:text-green-400 underline leading-relaxed">
-                    {r.replacementText}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{r.reason}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -429,32 +525,39 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
                 </button>
               </div>
             </div>
-            {redlines.map((r) => (
-              <div
-                key={r.id}
-                className={`flex items-start gap-2.5 rounded-md px-3 py-2 text-xs border transition-colors ${activeRedline === r.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
-                data-testid={`redline-summary-${r.id}`}
-              >
-                <Checkbox
-                  id={`include-redline-${r.id}`}
-                  checked={selectedIds.has(r.id)}
-                  onCheckedChange={() => toggleId(r.id)}
-                  className="mt-0.5 shrink-0"
-                  data-testid={`checkbox-include-redline-${r.id}`}
-                  title="Include in download"
-                />
-                <button
-                  onClick={() => scrollToRedline(r.id)}
-                  className="flex-1 text-left"
+            {redlines.map((r) => {
+              const status = getStatus(r.id);
+              return (
+                <div
+                  key={r.id}
+                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs border transition-colors ${activeRedline === r.id ? "border-primary bg-primary/5" : status === "accepted" ? "border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-950/20" : status === "rejected" ? "border-border opacity-40 bg-muted" : "border-border hover:bg-muted/50"}`}
+                  data-testid={`redline-summary-${r.id}`}
                 >
-                  <span className={`font-bold mr-2 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>[{r.id}]</span>
-                  {r.riskFlagTitle && (
-                    <span className={`font-medium mr-1 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>{r.riskFlagTitle} —</span>
-                  )}
-                  <span className="text-muted-foreground">{r.reason}</span>
-                </button>
-              </div>
-            ))}
+                  <Checkbox
+                    id={`include-redline-${r.id}`}
+                    checked={selectedIds.has(r.id)}
+                    onCheckedChange={() => toggleId(r.id)}
+                    className="mt-0.5 shrink-0"
+                    data-testid={`checkbox-include-redline-${r.id}`}
+                    title="Include in download"
+                  />
+                  <button
+                    onClick={() => scrollToRedline(r.id)}
+                    className="flex-1 text-left min-w-0"
+                  >
+                    <span className={`font-bold mr-2 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>[{r.id}]</span>
+                    {r.riskFlagTitle && (
+                      <span className={`font-medium mr-1 ${!selectedIds.has(r.id) ? "text-muted-foreground" : ""}`}>{r.riskFlagTitle} —</span>
+                    )}
+                    <span className="text-muted-foreground">{r.reason}</span>
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {statusBadge(r.id)}
+                    {acceptRejectButtons(r.id)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </SheetContent>
