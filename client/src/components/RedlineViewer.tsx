@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown } from "lucide-react";
+import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown, CheckSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Redline } from "@shared/schema";
 
@@ -366,15 +366,18 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
         </SheetHeader>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 px-4 py-2 bg-muted/30 border-b text-xs shrink-0">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-muted/30 border-b text-xs shrink-0">
           <span className="flex items-center gap-1.5">
             <span className="line-through text-red-600 dark:text-red-400">Deleted text</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="underline text-green-700 dark:text-green-400">Added text</span>
           </span>
-          <span className="flex items-center gap-1.5 ml-2 text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
             <ThumbsUp className="h-3 w-3" /> Accept &nbsp;/&nbsp; <ThumbsDown className="h-3 w-3" /> Reject each edit
+          </span>
+          <span className="flex items-center gap-1 text-muted-foreground border-l border-border pl-4">
+            <CheckSquare className="h-3 w-3 shrink-0" /> checked = included in download
           </span>
           <span className="text-muted-foreground ml-auto">
             {redlines.length} edit{redlines.length !== 1 ? "s" : ""}
@@ -391,12 +394,14 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               const r = seg.redline!;
               const isActive = activeRedline === r.id;
               const status = getStatus(r.id);
+              const isSelected = selectedIds.has(r.id);
               return (
                 <span
                   key={i}
                   ref={(el) => { redlineRefs.current[r.id] = el; }}
-                  className={`relative cursor-pointer transition-colors rounded-sm ${isActive ? "outline outline-2 outline-primary/60 outline-offset-1" : ""} ${status === "accepted" ? "bg-green-50 dark:bg-green-950/30" : status === "rejected" ? "opacity-40" : ""}`}
+                  className={`relative cursor-pointer transition-all rounded-sm ${isActive ? "outline outline-2 outline-primary/60 outline-offset-1" : ""} ${!isSelected ? "opacity-40" : status === "accepted" ? "bg-green-50 dark:bg-green-950/30" : status === "rejected" ? "opacity-40" : ""}`}
                   onClick={() => setActiveRedline(isActive ? null : r.id)}
+                  title={!isSelected ? "Excluded from download — check in Edit Summary to include" : undefined}
                   data-testid={`redline-edit-${r.id}`}
                 >
                   {/* Deleted text */}
@@ -435,12 +440,14 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               </h3>
               {unmatchedRedlines.map((r) => {
                 const status = getStatus(r.id);
+                const isSelected = selectedIds.has(r.id);
                 return (
                   <div
                     key={r.id}
                     ref={(el) => { redlineRefs.current[r.id] = el; }}
-                    className={`rounded-md border p-3 space-y-2 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-950/20" : status === "rejected" ? "border-border opacity-40" : "border-border"}`}
+                    className={`rounded-md border p-3 space-y-2 cursor-pointer transition-all ${!isSelected ? "opacity-40 border-dashed" : activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-950/20" : status === "rejected" ? "border-border opacity-40" : "border-border"}`}
                     onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
+                    title={!isSelected ? "Excluded from download — check in Edit Summary to include" : undefined}
                     data-testid={`redline-edit-${r.id}`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -474,12 +481,14 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               </h3>
               {insertionRedlines.map((r) => {
                 const status = getStatus(r.id);
+                const isSelected = selectedIds.has(r.id);
                 return (
                   <div
                     key={r.id}
                     ref={(el) => { redlineRefs.current[r.id] = el; }}
-                    className={`rounded-md border p-3 space-y-1 cursor-pointer transition-colors ${activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-500 bg-green-100 dark:border-green-600 dark:bg-green-950/40" : status === "rejected" ? "border-border bg-muted opacity-40" : "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20"}`}
+                    className={`rounded-md border p-3 space-y-1 cursor-pointer transition-all ${!isSelected ? "opacity-40 border-dashed" : activeRedline === r.id ? "border-primary/60 bg-primary/5" : status === "accepted" ? "border-green-500 bg-green-100 dark:border-green-600 dark:bg-green-950/40" : status === "rejected" ? "border-border bg-muted opacity-40" : "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20"}`}
                     onClick={() => setActiveRedline(activeRedline === r.id ? null : r.id)}
+                    title={!isSelected ? "Excluded from download — check in Edit Summary to include" : undefined}
                     data-testid={`redline-insertion-${r.id}`}
                   >
                     <div className="flex items-center justify-between gap-2">
