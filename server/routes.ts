@@ -498,10 +498,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No redlines available. Generate redlines first." });
       }
 
-      // Optional ID filter — if `ids` is provided and non-empty, only include those redlines
+      // Optional ID filter:
+      //   ids absent/undefined  → include all redlines (no filtering)
+      //   ids: number[]         → include only those IDs (empty array = include none)
       const { ids } = req.body as { ids?: unknown };
       let redlines = contract.analysis.redlines;
-      if (Array.isArray(ids) && ids.length > 0) {
+      if (Array.isArray(ids)) {
         const idSet = new Set(ids.map(Number).filter(n => !isNaN(n)));
         redlines = redlines.filter(r => idSet.has(r.id));
       }
