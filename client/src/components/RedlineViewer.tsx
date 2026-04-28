@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { Redline } from "@shared/schema";
 
 interface RedlineViewerProps {
@@ -94,6 +95,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const [downloading, setDownloading] = useState(false);
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
+  const { toast } = useToast();
 
   const handleDownloadDocx = async () => {
     setDownloading(true);
@@ -110,7 +112,11 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      // silently fall through; user will see no download
+      toast({
+        title: "Download failed",
+        description: "Could not generate the .docx file. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setDownloading(false);
     }
