@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,7 @@ export default function ContractAnalysis() {
   const [isGeneratingClauses, setIsGeneratingClauses] = useState(false);
   const [clauseGenerationError, setClauseGenerationError] = useState(false);
   const [showRawText, setShowRawText] = useState(false);
+  const [lastAnalysedAt, setLastAnalysedAt] = useState<string | null>(null);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -177,6 +178,17 @@ export default function ContractAnalysis() {
       document.querySelector('[data-testid="tab-risks"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
   };
+
+  // Reset clause state when the analysis changes (re-analysis or switching contracts)
+  useEffect(() => {
+    const analysedAt = contract?.analysis?.analysedAt ?? null;
+    if (analysedAt !== lastAnalysedAt) {
+      setLastAnalysedAt(analysedAt);
+      setClauses([]);
+      setClausesGenerated(false);
+      setClauseGenerationError(false);
+    }
+  }, [contractId, contract?.analysis?.analysedAt]);
 
   const loadClauses = async (analysis: NonNullable<typeof contract>["analysis"]) => {
     if (!analysis || clausesGenerated || isGeneratingClauses) return;

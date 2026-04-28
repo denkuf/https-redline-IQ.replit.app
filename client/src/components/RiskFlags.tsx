@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Quote, CheckCircle, Info, AlertCircle } from "lucide-react";
+import { AlertTriangle, Quote, CheckCircle, Info, AlertCircle, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RiskBadge } from "./RiskBadge";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
@@ -20,6 +20,7 @@ interface RiskFlagsProps {
 
 export function RiskFlags({ riskFlags, contractType = "general", industryMode = "general", highlightedFlagTitle }: RiskFlagsProps) {
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [isFiltered, setIsFiltered] = useState(false);
 
   const sortedFlagsForInit = [...riskFlags].sort((a, b) => {
     const order = { High: 0, Medium: 1, Low: 2 };
@@ -30,7 +31,10 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
   );
 
   useEffect(() => {
-    if (!highlightedFlagTitle) return;
+    if (!highlightedFlagTitle) {
+      setIsFiltered(false);
+      return;
+    }
     const sortedFlags = [...riskFlags].sort((a, b) => {
       const order = { High: 0, Medium: 1, Low: 2 };
       return order[a.severity] - order[b.severity];
@@ -39,14 +43,28 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
       f => f.title.toLowerCase() === highlightedFlagTitle.toLowerCase()
     );
     if (matchIndex === -1) return;
-    const itemKey = `risk-${matchIndex}`;
-    setOpenItems(prev => prev.includes(itemKey) ? prev : [...prev, itemKey]);
+    setIsFiltered(true);
+    // When filtered, the single visible item is always at index 0
+    setOpenItems(["risk-0"]);
     // Scroll to the item after a short delay (tab switch animation)
     setTimeout(() => {
-      const el = itemRefs.current[itemKey];
+      const el = itemRefs.current["risk-0"];
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 200);
   }, [highlightedFlagTitle]);
+
+  const sortedFlags = [...riskFlags].sort((a, b) => {
+    const order = { High: 0, Medium: 1, Low: 2 };
+    return order[a.severity] - order[b.severity];
+  });
+
+  const visibleFlags = isFiltered && highlightedFlagTitle
+    ? sortedFlags.filter(f => f.title.toLowerCase() === highlightedFlagTitle.toLowerCase())
+    : sortedFlags;
+
+  const highCount = riskFlags.filter((r) => r.severity === "High").length;
+  const mediumCount = riskFlags.filter((r) => r.severity === "Medium").length;
+  const lowCount = riskFlags.filter((r) => r.severity === "Low").length;
 
   if (!riskFlags.length) {
     return (
@@ -72,15 +90,6 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
     );
   }
 
-  const sortedFlags = [...riskFlags].sort((a, b) => {
-    const order = { High: 0, Medium: 1, Low: 2 };
-    return order[a.severity] - order[b.severity];
-  });
-
-  const highCount = riskFlags.filter((r) => r.severity === "High").length;
-  const mediumCount = riskFlags.filter((r) => r.severity === "Medium").length;
-  const lowCount = riskFlags.filter((r) => r.severity === "Low").length;
-
   return (
     <Card>
       <CardHeader>
@@ -90,21 +99,34 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
             Risk Analysis
           </CardTitle>
           <div className="flex items-center gap-3 text-sm">
-            {highCount > 0 && (
-              <span className="text-red-600 dark:text-red-400">{highCount} High</span>
-            )}
-            {mediumCount > 0 && (
-              <span className="text-amber-600 dark:text-amber-400">{mediumCount} Medium</span>
-            )}
-            {lowCount > 0 && (
-              <span className="text-green-600 dark:text-green-400">{lowCount} Low</span>
+            {isFiltered ? (
+              <button
+                onClick={() => setIsFiltered(false)}
+                data-testid="show-all-risks"
+                className="flex items-center gap-1.5 text-xs text-primary border border-primary/30 bg-primary/5 hover:bg-primary/10 rounded px-2 py-1 transition-colors"
+              >
+                <X className="h-3 w-3" />
+                Show all {riskFlags.length} risks
+              </button>
+            ) : (
+              <>
+                {highCount > 0 && (
+                  <span className="text-red-600 dark:text-red-400">{highCount} High</span>
+                )}
+                {mediumCount > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400">{mediumCount} Medium</span>
+                )}
+                {lowCount > 0 && (
+                  <span className="text-green-600 dark:text-green-400">{lowCount} Low</span>
+                )}
+              </>
             )}
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
-          {sortedFlags.map((risk, i) => {
+          {visibleFlags.map((risk, i) => {
             const itemKey = `risk-${i}`;
             const isHighlighted = highlightedFlagTitle
               ? risk.title.toLowerCase() === highlightedFlagTitle.toLowerCase()
