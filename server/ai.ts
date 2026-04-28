@@ -780,10 +780,24 @@ Provide an updated analysis incorporating these answers. Return JSON with the sa
   const content = response.choices[0]?.message?.content || "{}";
   const parsed = JSON.parse(content);
 
+  // Sanitize any missingClauses the AI returns in the updated analysis
+  const updatedMissingClauses: MissingClause[] | undefined = parsed.missingClauses
+    ? (parsed.missingClauses as any[])
+        .map((m: any) => ({
+          clauseName: m.clauseName || m.name || "",
+          whyItMatters: m.whyItMatters || m.why || "",
+          severity: ["Low", "Medium", "High"].includes(m.severity) ? m.severity as "Low" | "Medium" | "High" : "Medium",
+          sampleLanguage: m.sampleLanguage || m.sample || "",
+        }))
+        .filter((m: MissingClause) => m.clauseName && m.whyItMatters && m.sampleLanguage)
+    : undefined;
+
   return {
     summary: parsed.summary || previousAnalysis.summary,
     keyTerms: parsed.keyTerms || previousAnalysis.keyTerms,
     riskFlags: parsed.riskFlags || previousAnalysis.riskFlags,
+    // Preserve missing clauses: use updated ones if AI returned them, otherwise keep previous
+    missingClauses: updatedMissingClauses ?? previousAnalysis.missingClauses ?? [],
     clarifyingQuestions: parsed.clarifyingQuestions?.filter((q: any) => !answers[q.id]) || [],
     overallAssessment: parsed.overallAssessment || previousAnalysis.overallAssessment,
     verdict: parsed.verdict || previousAnalysis.verdict,
