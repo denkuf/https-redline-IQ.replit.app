@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause, AnnotatedClause } from "@shared/schema";
+import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause, AnnotatedClause, Redline } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -1498,4 +1498,88 @@ RULES:
         : [],
     }))
     .filter((c: AnnotatedClause) => c.name && c.originalText && c.plainEnglish);
+}
+
+// ─── Smart Redline Generator ───────────────────────────────────────────────
+// Produces tracked-change edits from the contract's risk flags.
+// Each redline contains the exact original clause text and a proposed replacement.
+export async function generateRedlines(
+  contractText: string,
+  riskFlags: RiskFlag[]
+): Promise<Redline[]> {
+  // Only generate redlines for flags that have formal suggested changes
+  const actionableFlags = riskFlags.filter(
+    (f) => f.negotiation?.suggestedChangeFormal || f.negotiation?.suggestedChangePlain
+  );
+
+  if (actionableFlags.length === 0) return [];
+
+  const flagSummaries = actionableFlags.map((f, i) => 
+    `${i + 1}. RISK FLAG: "${f.title}"
+   Severity: ${f.severity}
+   Original clause quote: "${f.clauseQuote}"
+   Clause reference: ${f.clauseReference}
+   Why it's risky: ${f.negotiation?.whyItsRisky || f.explanation}
+   Suggested change (formal): ${f.negotiation?.suggestedChangeFormal || ""}
+   Suggested change (plain): ${f.negotiation?.suggestedChangePlain || ""}
+   Reason for change: ${f.negotiation?.whatItDoes || f.explanation}`
+  ).join("\n\n");
+
+  const prompt = `You are a contract redlining expert. Your job is to produce tracked-change edits for a legal contract — exactly like a lawyer would mark up a client's contract.
+
+CONTRACT TEXT:
+${contractText.slice(0, 8000)}${contractText.length > 8000 ? "\n[... contract continues ...]" : ""}
+
+RISK FLAGS TO ADDRESS (${actionableFlags.length} items):
+${flagSummaries}
+
+INSTRUCTIONS:
+For each risk flag, produce ONE redline edit:
+1. "originalText": Copy the EXACT text from the contract that should be deleted or replaced. This must be an exact substring of the contract text (copy-paste precisely, max 200 words). If the clause has no text to remove (e.g. a missing clause), use an empty string "".
+2. "replacementText": Write the improved replacement text using professional legal language. This is what will appear as the green "added" text. For missing clauses, write the new clause to be inserted. Keep it concise (max 200 words).
+3. "reason": One sentence explaining why this specific edit protects the signer (e.g. "Limits your liability exposure to fees paid under this agreement").
+4. "riskFlagTitle": The exact title of the risk flag this redline addresses.
+
+RULES:
+- "originalText" MUST be an exact verbatim copy of text in the contract — do not paraphrase or summarise
+- If you cannot find exact text to quote, pick the closest matching sentence(s) from the contract
+- "replacementText" must be professional legal language, not bullet points or plain English summary
+- Skip any risk flag where you cannot produce a meaningful replacement
+- Respond ONLY with valid JSON
+
+{
+  "redlines": [
+    {
+      "originalText": "exact text from contract",
+      "replacementText": "professional legal replacement text",
+      "reason": "One sentence explaining the protection this provides",
+      "riskFlagTitle": "exact title of the risk flag"
+    }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: FULL_MODEL,
+    messages: [
+      { role: "system", content: "You are a contract redlining expert. Produce exact tracked-change edits. Respond ONLY with valid JSON." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 4000,
+  });
+
+  const raw = response.choices[0]?.message?.content || "{}";
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed.redlines)) return [];
+
+  return (parsed.redlines as any[])
+    .map((r: any, i: number): Redline | null => {
+      const originalText = String(r.originalText ?? "").trim();
+      const replacementText = String(r.replacementText ?? "").trim();
+      const reason = String(r.reason ?? "").trim();
+      const riskFlagTitle = r.riskFlagTitle ? String(r.riskFlagTitle).trim() : undefined;
+      if (!replacementText || !reason) return null;
+      return { id: i + 1, originalText, replacementText, reason, riskFlagTitle };
+    })
+    .filter((r): r is Redline => r !== null);
 }

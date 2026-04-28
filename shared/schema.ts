@@ -127,6 +127,17 @@ export const verdictSchema = z.object({
 
 export type Verdict = z.infer<typeof verdictSchema>;
 
+// Redline schema — a single tracked-change edit produced by the Smart Redline Generator
+export const redlineSchema = z.object({
+  id: z.number(),
+  originalText: z.string(),
+  replacementText: z.string(),
+  reason: z.string(),
+  riskFlagTitle: z.string().optional(),
+});
+
+export type Redline = z.infer<typeof redlineSchema>;
+
 // Analysis result schema
 export const analysisResultSchema = z.object({
   summary: summarySchema,
@@ -134,6 +145,7 @@ export const analysisResultSchema = z.object({
   riskFlags: z.array(riskFlagSchema),
   missingClauses: z.array(missingClauseSchema).optional(),
   clauses: z.array(annotatedClauseSchema).optional(),
+  redlines: z.array(redlineSchema).optional(),
   clarifyingQuestions: z.array(clarifyingQuestionSchema).optional(),
   overallAssessment: z.string().optional(),
   verdict: verdictSchema.optional(),

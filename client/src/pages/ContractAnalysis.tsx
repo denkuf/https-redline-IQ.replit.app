@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin, Clock, X, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin, Clock, X, BookOpen, ChevronDown, ChevronRight, FileEdit } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
@@ -12,6 +12,7 @@ import { MissingClauses } from "@/components/MissingClauses";
 import { ClarifyingQuestions } from "@/components/ClarifyingQuestions";
 import { ContractViewer } from "@/components/ContractViewer";
 import { ClauseReader, ClauseReaderSkeleton } from "@/components/ClauseReader";
+import { RedlineViewer } from "@/components/RedlineViewer";
 import { OverallAssessment } from "@/components/OverallAssessment";
 import { AnalysisLoading } from "@/components/AnalysisLoading";
 import { ExportButton } from "@/components/ExportButton";
@@ -23,7 +24,7 @@ import { ShareSafeSummary } from "@/components/ShareSafeSummary";
 import { VisualRiskHeatmap } from "@/components/VisualRiskHeatmap";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { industryModeLabels, type Contract, type Verdict } from "@shared/schema";
+import { industryModeLabels, type Contract, type Verdict, type Redline } from "@shared/schema";
 
 const STALE_DAYS = 180;
 
@@ -66,6 +67,9 @@ export default function ContractAnalysis() {
   const [clauseGenerationError, setClauseGenerationError] = useState(false);
   const [showRawText, setShowRawText] = useState(false);
   const [lastAnalysedAt, setLastAnalysedAt] = useState<string | null>(null);
+  const [showRedlineViewer, setShowRedlineViewer] = useState(false);
+  const [redlines, setRedlines] = useState<Redline[]>([]);
+  const [isGeneratingRedlines, setIsGeneratingRedlines] = useState(false);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -168,6 +172,32 @@ export default function ContractAnalysis() {
       setExplanation("Unable to explain this selection. Please try again.");
     } finally {
       setIsExplaining(false);
+    }
+  };
+
+  const handleGenerateRedlines = async () => {
+    if (!contract?.analysis) return;
+    // If we already have cached redlines from the analysis, use them
+    if (contract.analysis.redlines && contract.analysis.redlines.length > 0) {
+      setRedlines(contract.analysis.redlines);
+      setShowRedlineViewer(true);
+      return;
+    }
+    // If we already generated them in this session
+    if (redlines.length > 0) {
+      setShowRedlineViewer(true);
+      return;
+    }
+    setIsGeneratingRedlines(true);
+    try {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/redlines`);
+      const data = await res.json();
+      setRedlines(data.redlines || []);
+      setShowRedlineViewer(true);
+    } catch {
+      toast({ title: "Failed to generate redlines", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsGeneratingRedlines(false);
     }
   };
 
@@ -390,6 +420,21 @@ export default function ContractAnalysis() {
               )}
             </div>
             <ExportButton contract={contract} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateRedlines}
+              disabled={isGeneratingRedlines}
+              data-testid="button-generate-redlines"
+            >
+              {isGeneratingRedlines ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileEdit className="h-4 w-4 mr-2" />
+              )}
+              <span className="hidden sm:inline">Redlines</span>
+              <span className="sm:hidden">Redlines</span>
+            </Button>
             {analysis.riskFlags?.some(r => r.negotiation) && (
               <Button
                 variant="outline"
@@ -615,6 +660,17 @@ export default function ContractAnalysis() {
 
           <Disclaimer className="mt-8" />
         </div>
+      )}
+
+      {/* Smart Redline Viewer */}
+      {showRedlineViewer && contract && (
+        <RedlineViewer
+          contractText={contract.extractedText}
+          redlines={redlines}
+          contractName={contract.name}
+          open={showRedlineViewer}
+          onClose={() => setShowRedlineViewer(false)}
+        />
       )}
     </div>
   );

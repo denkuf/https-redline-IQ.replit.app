@@ -63,6 +63,7 @@ Redline IQ is a contract analysis web application designed to empower individual
     -   **Template Library**: 6 pre-loaded contract templates (NDA, Freelance, Lease, Employment, SaaS, Vendor) with annotations, risk-level coloring, and common red flags.
     -   **Re-Analysis After Edits**: Upload revised contract version from contract detail page. Creates new version and navigates to comparison view.
     -   **Account Deletion**: Full atomic transaction for user data removal upon account deletion.
+    -   **Smart Redline Generator**: "Redlines" button on the contract analysis page triggers AI generation of tracked-change edits — red strikethrough (deleted text) and green underline (replacement text), identical to lawyer track-changes markup. Each edit is numbered with a reason annotation. Full-screen sheet viewer with edit summary sidebar, prev/next navigation, and "Copy Redlined Text" button (outputs `[DELETED]`/`[ADDED]` markers for Word/Google Docs). Results cached per contract in `analysis.redlines`. Schema: `Redline` type with `id`, `originalText`, `replacementText`, `reason`, `riskFlagTitle`. Endpoint: `POST /api/contracts/:id/redlines`.
 
 ### External Dependencies
 -   **AI**: OpenAI GPT-5.2 via Replit AI Integrations

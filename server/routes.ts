@@ -4,7 +4,7 @@ import multer from "multer";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts, generateClauseAnnotations } from "./ai";
+import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts, generateClauseAnnotations, generateRedlines } from "./ai";
 import { parseFile, parseFileWithQuality, generateContractName } from "./fileParser";
 import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
 import { registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
@@ -333,6 +333,37 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Explain error:", error);
       res.status(500).json({ message: "Failed to explain text" });
+    }
+  });
+
+  // Generate redlines for a contract (cached; requires auth)
+  app.post("/api/contracts/:id/redlines", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      if (!contract.analysis) return res.status(400).json({ message: "No analysis available — analyse the contract first" });
+
+      // Return cached redlines if already generated
+      if (contract.analysis.redlines && contract.analysis.redlines.length > 0) {
+        return res.json({ redlines: contract.analysis.redlines });
+      }
+
+      // Generate redlines from existing risk flags
+      const redlines = await generateRedlines(
+        contract.extractedText,
+        contract.analysis.riskFlags || []
+      );
+
+      // Persist into analysis so subsequent calls are served from cache
+      const updatedAnalysis = { ...contract.analysis, redlines };
+      await storage.updateContractAnalysis(id, updatedAnalysis, contract.status || "completed");
+
+      res.json({ redlines });
+    } catch (error) {
+      console.error("Redline generation error:", error);
+      res.status(500).json({ message: "Failed to generate redlines" });
     }
   });
 
