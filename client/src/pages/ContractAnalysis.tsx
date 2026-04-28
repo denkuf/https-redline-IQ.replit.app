@@ -4,13 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin, Clock, X } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, ClipboardList, Download, GitCompare, Share2, RefreshCw, Upload, MapPin, Clock, X, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { AnalysisSummary } from "@/components/AnalysisSummary";
 import { KeyTermsTable } from "@/components/KeyTermsTable";
 import { RiskFlags } from "@/components/RiskFlags";
 import { MissingClauses } from "@/components/MissingClauses";
 import { ClarifyingQuestions } from "@/components/ClarifyingQuestions";
 import { ContractViewer } from "@/components/ContractViewer";
+import { ClauseReader, ClauseReaderSkeleton } from "@/components/ClauseReader";
 import { OverallAssessment } from "@/components/OverallAssessment";
 import { AnalysisLoading } from "@/components/AnalysisLoading";
 import { ExportButton } from "@/components/ExportButton";
@@ -57,6 +58,12 @@ export default function ContractAnalysis() {
   const [showRefreshPanel, setShowRefreshPanel] = useState(false);
   const [refreshJurisdiction, setRefreshJurisdiction] = useState("");
   const [refreshContext, setRefreshContext] = useState("");
+  const [activeTab, setActiveTab] = useState("summary");
+  const [clausesGenerated, setClausesGenerated] = useState(false);
+  const [clauses, setClauses] = useState<import("@shared/schema").AnnotatedClause[]>([]);
+  const [isGeneratingClauses, setIsGeneratingClauses] = useState(false);
+  const [clauseGenerationError, setClauseGenerationError] = useState(false);
+  const [showRawText, setShowRawText] = useState(false);
 
   const { data: contract, isLoading, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts", contractId],
@@ -159,6 +166,46 @@ export default function ContractAnalysis() {
       setExplanation("Unable to explain this selection. Please try again.");
     } finally {
       setIsExplaining(false);
+    }
+  };
+
+  const handleSwitchToRisks = (_flagTitle?: string) => {
+    setActiveTab("risks");
+    setTimeout(() => {
+      document.querySelector('[data-testid="tab-risks"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  };
+
+  const loadClauses = async (analysis: NonNullable<typeof contract>["analysis"]) => {
+    if (!analysis || clausesGenerated || isGeneratingClauses) return;
+    // Use cached clauses from analysis if available
+    if (analysis.clauses && analysis.clauses.length > 0) {
+      setClauses(analysis.clauses);
+      setClausesGenerated(true);
+      return;
+    }
+    setIsGeneratingClauses(true);
+    setClauseGenerationError(false);
+    try {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/clauses`);
+      const data = await res.json();
+      if (data.clauses && data.clauses.length > 0) {
+        setClauses(data.clauses);
+        setClausesGenerated(true);
+      } else {
+        setClauseGenerationError(true);
+      }
+    } catch {
+      setClauseGenerationError(true);
+    } finally {
+      setIsGeneratingClauses(false);
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "document" && contract?.analysis && !clausesGenerated && !isGeneratingClauses) {
+      loadClauses(contract.analysis);
     }
   };
 
@@ -410,7 +457,7 @@ export default function ContractAnalysis() {
             />
           )}
 
-          <Tabs defaultValue="summary" className="space-y-4 md:space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
             <TabsList className="grid w-full grid-cols-5 h-auto">
               <TabsTrigger value="summary" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-summary">
                 <FileText className="h-4 w-4 hidden sm:block sm:mr-1" />
@@ -433,8 +480,11 @@ export default function ContractAnalysis() {
                 Map
               </TabsTrigger>
               <TabsTrigger value="document" className="text-xs sm:text-sm px-1 sm:px-3 py-2" data-testid="tab-document">
-                <FileText className="h-4 w-4 hidden sm:block sm:mr-1" />
+                <BookOpen className="h-4 w-4 hidden sm:block sm:mr-1" />
                 Doc
+                {isGeneratingClauses && (
+                  <div className="ml-1 h-3 w-3 border border-primary border-t-transparent rounded-full animate-spin" />
+                )}
               </TabsTrigger>
             </TabsList>
 
@@ -464,13 +514,79 @@ export default function ContractAnalysis() {
               />
             </TabsContent>
 
-            <TabsContent value="document">
-              <ContractViewer
-                text={contract.extractedText}
-                onExplainSelection={handleExplainSelection}
-                isExplaining={isExplaining}
-                explanation={explanation}
-              />
+            <TabsContent value="document" className="space-y-4">
+              {isGeneratingClauses ? (
+                <ClauseReaderSkeleton />
+              ) : clausesGenerated && clauses.length > 0 ? (
+                <>
+                  <ClauseReader
+                    clauses={clauses}
+                    onSwitchToRisks={handleSwitchToRisks}
+                  />
+                  <div className="border rounded-lg">
+                    <button
+                      className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
+                      onClick={() => setShowRawText(!showRawText)}
+                      data-testid="button-toggle-raw-text"
+                    >
+                      <span className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        View raw contract text
+                      </span>
+                      {showRawText ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    {showRawText && (
+                      <div className="border-t">
+                        <ContractViewer
+                          text={contract.extractedText}
+                          onExplainSelection={handleExplainSelection}
+                          isExplaining={isExplaining}
+                          explanation={explanation}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : clauseGenerationError ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Annotated reader unavailable</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                      Could not generate clause annotations. Showing the raw contract text below. Use "Select to Explain" to understand any section.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 text-xs border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-300"
+                      onClick={() => {
+                        setClauseGenerationError(false);
+                        loadClauses(contract.analysis);
+                      }}
+                      data-testid="button-retry-clauses"
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Retry
+                    </Button>
+                  </div>
+                  <ContractViewer
+                    text={contract.extractedText}
+                    onExplainSelection={handleExplainSelection}
+                    isExplaining={isExplaining}
+                    explanation={explanation}
+                  />
+                </div>
+              ) : (
+                <ContractViewer
+                  text={contract.extractedText}
+                  onExplainSelection={handleExplainSelection}
+                  isExplaining={isExplaining}
+                  explanation={explanation}
+                />
+              )}
             </TabsContent>
           </Tabs>
 

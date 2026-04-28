@@ -67,6 +67,18 @@ export const missingClauseSchema = z.object({
 
 export type MissingClause = z.infer<typeof missingClauseSchema>;
 
+// Annotated clause schema — clause-by-clause reader segmentation
+export const annotatedClauseSchema = z.object({
+  name: z.string(),
+  originalText: z.string(),
+  plainEnglish: z.string(),
+  riskLevel: z.enum(["safe", "caution", "high", "flagged"]),
+  isStandard: z.boolean(),
+  linkedRiskFlagTitles: z.array(z.string()),
+});
+
+export type AnnotatedClause = z.infer<typeof annotatedClauseSchema>;
+
 // Key term schema
 export const keyTermSchema = z.object({
   category: z.string(),
@@ -121,6 +133,7 @@ export const analysisResultSchema = z.object({
   keyTerms: z.array(keyTermSchema),
   riskFlags: z.array(riskFlagSchema),
   missingClauses: z.array(missingClauseSchema).optional(),
+  clauses: z.array(annotatedClauseSchema).optional(),
   clarifyingQuestions: z.array(clarifyingQuestionSchema).optional(),
   overallAssessment: z.string().optional(),
   verdict: verdictSchema.optional(),

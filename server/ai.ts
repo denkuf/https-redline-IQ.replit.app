@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause } from "@shared/schema";
+import type { AnalysisResult, Summary, KeyTerm, RiskFlag, ClarifyingQuestion, Verdict, IndustryMode, RiskPreferences, MissingClause, AnnotatedClause } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -590,11 +590,15 @@ function mergeAnalysisResults(
   // Contract type: first non-null
   const contractType = results.map(r => r.contractType).find(Boolean);
 
+  // Clauses: concatenate in document order (each chunk's clauses cover its portion of the contract)
+  const allClauses: AnnotatedClause[] = results.flatMap(r => r.clauses ?? []);
+
   return {
     summary,
     keyTerms: allKeyTerms,
     riskFlags: allFlags,
     missingClauses: allMissingClauses,
+    clauses: allClauses.length > 0 ? allClauses : undefined,
     clarifyingQuestions: allQuestions,
     overallAssessment: highestRiskResult.overallAssessment,
     verdict: mergedVerdict,
@@ -1416,4 +1420,82 @@ Respond in JSON:
 
   const result = response.choices[0]?.message?.content || '{"response": "I\'m sorry, I couldn\'t process that. Please try again."}';
   return JSON.parse(result);
+}
+
+// ============================================
+// Clause Annotation — Annotated Reader
+// ============================================
+
+export async function generateClauseAnnotations(
+  contractText: string,
+  riskFlags: RiskFlag[],
+  industryMode: IndustryMode = "general"
+): Promise<AnnotatedClause[]> {
+  const flagTitlesText = riskFlags.length > 0
+    ? `\nEXISTING RISK FLAGS (link clauses to these by exact title match):\n${riskFlags.map((f, i) => `${i + 1}. ${f.title}`).join("\n")}`
+    : "";
+
+  const prompt = `You are a contract reader. Segment this ${industryMode.toUpperCase()} contract into its named clauses or sections and annotate each one.
+
+CONTRACT TEXT:
+${contractText.slice(0, 40000)}
+${flagTitlesText}
+
+Return a JSON object with a "clauses" array. Work through the document from start to finish.
+
+{
+  "clauses": [
+    {
+      "name": "Section name or clause title (e.g. 'Section 1 — Parties', 'Payment Terms', 'Termination')",
+      "originalText": "The exact text of this clause copied from the contract (max 300 words; if longer, include first 250 words then '[... clause continues]')",
+      "plainEnglish": "A 1-3 sentence plain-English explanation of what this clause means and who it benefits most",
+      "riskLevel": "safe | caution | high | flagged",
+      "isStandard": true or false (is this clause wording typical for a ${industryMode} contract?),
+      "linkedRiskFlagTitles": ["Exact title of any risk flag from the EXISTING RISK FLAGS list that references this clause — must be exact match"]
+    }
+  ]
+}
+
+RISK LEVEL GUIDE:
+- "flagged": This clause is directly referenced by one or more of the EXISTING RISK FLAGS above
+- "high": This clause contains significant risk to the signer even if not in the risk flags list
+- "caution": This clause has moderate concern or unusual wording compared to the norm
+- "safe": This clause is standard and poses no material risk to the signer
+
+RULES:
+- Work through the contract from beginning to end, covering every named section
+- "linkedRiskFlagTitles" entries MUST exactly match titles from the EXISTING RISK FLAGS list (copy-paste exact)
+- A clause is "flagged" ONLY if it has at least one linkedRiskFlagTitle
+- Keep originalText under 300 words — truncate with '[... clause continues]' if needed
+- Aim for 5–25 clauses depending on contract length
+- Respond ONLY with the JSON object`;
+
+  const response = await openai.chat.completions.create({
+    model: FULL_MODEL,
+    messages: [
+      { role: "system", content: "You are a contract reader that segments and annotates legal documents. Respond ONLY with valid JSON." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 6000,
+  });
+
+  const content = response.choices[0]?.message?.content || "{}";
+  const parsed = JSON.parse(content);
+
+  if (!Array.isArray(parsed.clauses)) return [];
+
+  const validRiskLevels = ["safe", "caution", "high", "flagged"] as const;
+  return (parsed.clauses as any[])
+    .map((c: any) => ({
+      name: String(c.name || "Untitled Clause").trim(),
+      originalText: String(c.originalText || "").trim(),
+      plainEnglish: String(c.plainEnglish || "").trim(),
+      riskLevel: validRiskLevels.includes(c.riskLevel) ? c.riskLevel as AnnotatedClause["riskLevel"] : "safe",
+      isStandard: Boolean(c.isStandard),
+      linkedRiskFlagTitles: Array.isArray(c.linkedRiskFlagTitles)
+        ? (c.linkedRiskFlagTitles as any[]).filter(t => typeof t === "string")
+        : [],
+    }))
+    .filter((c: AnnotatedClause) => c.name && c.originalText && c.plainEnglish);
 }

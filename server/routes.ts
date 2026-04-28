@@ -4,7 +4,7 @@ import multer from "multer";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
-import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts } from "./ai";
+import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts, generateClauseAnnotations } from "./ai";
 import { parseFile, parseFileWithQuality, generateContractName } from "./fileParser";
 import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
 import { registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
@@ -333,6 +333,38 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Explain error:", error);
       res.status(500).json({ message: "Failed to explain text" });
+    }
+  });
+
+  // Generate clause annotations for annotated reader (cached; requires auth)
+  app.post("/api/contracts/:id/clauses", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      if (!contract.analysis) return res.status(400).json({ message: "No analysis available" });
+
+      // Return cached clauses if already generated
+      if (contract.analysis.clauses && contract.analysis.clauses.length > 0) {
+        return res.json({ clauses: contract.analysis.clauses });
+      }
+
+      // Generate clause annotations
+      const clauses = await generateClauseAnnotations(
+        contract.extractedText,
+        contract.analysis.riskFlags || [],
+        (contract.industryMode as any) || "general"
+      );
+
+      // Persist into analysis so subsequent calls are served from cache
+      const updatedAnalysis = { ...contract.analysis, clauses };
+      await storage.updateContractAnalysis(id, updatedAnalysis, contract.status || "completed");
+
+      res.json({ clauses });
+    } catch (error) {
+      console.error("Clause annotation error:", error);
+      res.status(500).json({ message: "Failed to generate clause annotations" });
     }
   });
 
