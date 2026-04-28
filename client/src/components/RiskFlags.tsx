@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,39 @@ interface RiskFlagsProps {
   riskFlags: RiskFlag[];
   contractType?: string;
   industryMode?: string;
+  highlightedFlagTitle?: string;
 }
 
-export function RiskFlags({ riskFlags, contractType = "general", industryMode = "general" }: RiskFlagsProps) {
+export function RiskFlags({ riskFlags, contractType = "general", industryMode = "general", highlightedFlagTitle }: RiskFlagsProps) {
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const sortedFlagsForInit = [...riskFlags].sort((a, b) => {
+    const order = { High: 0, Medium: 1, Low: 2 };
+    return order[a.severity] - order[b.severity];
+  });
+  const [openItems, setOpenItems] = useState<string[]>(
+    sortedFlagsForInit.filter(f => f.severity === "High").map((_, i) => `risk-${i}`)
+  );
+
+  useEffect(() => {
+    if (!highlightedFlagTitle) return;
+    const sortedFlags = [...riskFlags].sort((a, b) => {
+      const order = { High: 0, Medium: 1, Low: 2 };
+      return order[a.severity] - order[b.severity];
+    });
+    const matchIndex = sortedFlags.findIndex(
+      f => f.title.toLowerCase() === highlightedFlagTitle.toLowerCase()
+    );
+    if (matchIndex === -1) return;
+    const itemKey = `risk-${matchIndex}`;
+    setOpenItems(prev => prev.includes(itemKey) ? prev : [...prev, itemKey]);
+    // Scroll to the item after a short delay (tab switch animation)
+    setTimeout(() => {
+      const el = itemRefs.current[itemKey];
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+  }, [highlightedFlagTitle]);
+
   if (!riskFlags.length) {
     return (
       <Card>
@@ -72,9 +103,22 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
         </div>
       </CardHeader>
       <CardContent>
-        <Accordion type="multiple" defaultValue={sortedFlags.filter(f => f.severity === "High").map((_, i) => `risk-${i}`)}>
-          {sortedFlags.map((risk, i) => (
-            <AccordionItem key={i} value={`risk-${i}`} data-testid={`risk-flag-${i}`}>
+        <Accordion type="multiple" value={openItems} onValueChange={setOpenItems}>
+          {sortedFlags.map((risk, i) => {
+            const itemKey = `risk-${i}`;
+            const isHighlighted = highlightedFlagTitle
+              ? risk.title.toLowerCase() === highlightedFlagTitle.toLowerCase()
+              : false;
+            return (
+            <AccordionItem
+              key={i}
+              value={itemKey}
+              data-testid={`risk-flag-${i}`}
+              ref={(el) => { itemRefs.current[itemKey] = el; }}
+              className={isHighlighted && openItems.includes(itemKey)
+                ? "ring-2 ring-primary/40 rounded-md transition-all duration-300"
+                : ""}
+            >
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-3 text-left flex-wrap">
                   <RiskBadge severity={risk.severity} />
@@ -152,7 +196,8 @@ export function RiskFlags({ riskFlags, contractType = "general", industryMode = 
                 </div>
               </AccordionContent>
             </AccordionItem>
-          ))}
+            );
+          })}
         </Accordion>
       </CardContent>
     </Card>

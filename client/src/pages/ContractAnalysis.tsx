@@ -59,6 +59,7 @@ export default function ContractAnalysis() {
   const [refreshJurisdiction, setRefreshJurisdiction] = useState("");
   const [refreshContext, setRefreshContext] = useState("");
   const [activeTab, setActiveTab] = useState("summary");
+  const [highlightedRiskFlag, setHighlightedRiskFlag] = useState<string | undefined>(undefined);
   const [clausesGenerated, setClausesGenerated] = useState(false);
   const [clauses, setClauses] = useState<import("@shared/schema").AnnotatedClause[]>([]);
   const [isGeneratingClauses, setIsGeneratingClauses] = useState(false);
@@ -169,8 +170,9 @@ export default function ContractAnalysis() {
     }
   };
 
-  const handleSwitchToRisks = (_flagTitle?: string) => {
+  const handleSwitchToRisks = (flagTitle?: string) => {
     setActiveTab("risks");
+    if (flagTitle) setHighlightedRiskFlag(flagTitle);
     setTimeout(() => {
       document.querySelector('[data-testid="tab-risks"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
@@ -501,6 +503,7 @@ export default function ContractAnalysis() {
                 riskFlags={analysis.riskFlags || []} 
                 contractType={contract.type || "general"}
                 industryMode={contract.industryMode || "general"}
+                highlightedFlagTitle={highlightedRiskFlag}
               />
               {analysis.missingClauses && analysis.missingClauses.length > 0 && (
                 <MissingClauses missingClauses={analysis.missingClauses} />
