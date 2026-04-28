@@ -155,7 +155,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
     } catch {
       toast({
         title: "Download failed",
-        description: "Could not generate the .docx file. Please try again.",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
