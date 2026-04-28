@@ -197,6 +197,8 @@ export default function ContractAnalysis() {
       setRedlines(data.redlines || []);
       setRedlinesLoaded(true);
       setShowRedlineViewer(true);
+      // Refresh contract query so server-persisted analysis.redlines is the source of truth
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
     } catch {
       toast({ title: "Failed to generate redlines", description: "Please try again.", variant: "destructive" });
     } finally {
@@ -212,7 +214,7 @@ export default function ContractAnalysis() {
     }, 100);
   };
 
-  // Reset clause state when the analysis changes (re-analysis or switching contracts)
+  // Reset clause and redline state when analysis changes (re-analysis or switching contracts)
   useEffect(() => {
     const analysedAt = contract?.analysis?.analysedAt ?? null;
     if (analysedAt !== lastAnalysedAt) {
@@ -220,6 +222,10 @@ export default function ContractAnalysis() {
       setClauses([]);
       setClausesGenerated(false);
       setClauseGenerationError(false);
+      // Reset redline local state so stale edits from a prior analysis are never reused
+      setRedlines([]);
+      setRedlinesLoaded(false);
+      setShowRedlineViewer(false);
     }
   }, [contractId, contract?.analysis?.analysedAt]);
 
