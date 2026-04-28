@@ -674,6 +674,7 @@ export default function ContractAnalysis() {
       {/* Smart Redline Viewer */}
       {showRedlineViewer && contract && (
         <RedlineViewer
+          contractId={contractId}
           contractText={contract.extractedText}
           redlines={redlines}
           contractName={contract.name}

@@ -6,7 +6,7 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { analyzeContract, analyzeContractChunked, explainClause, reanalyzeWithAnswers, compareContracts, generateClauseAnnotations, generateRedlines } from "./ai";
 import { parseFile, parseFileWithQuality, generateContractName } from "./fileParser";
-import { generatePdfExport, generateTextExport, generateNegotiationPackPdf } from "./export";
+import { generatePdfExport, generateTextExport, generateNegotiationPackPdf, generateRedlineDocx } from "./export";
 import { registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import type { IndustryMode, RiskPreferences } from "@shared/schema";
 
@@ -482,6 +482,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Text export error:", error);
       res.status(500).json({ message: "Failed to export text" });
+    }
+  });
+
+  // Export redlines as .docx with native Word track changes
+  app.get("/api/contracts/:id/export/redlines", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const userId = getUserId(req);
+      const contract = await storage.getContract(id, userId);
+
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      if (!contract.analysis?.redlines || contract.analysis.redlines.length === 0) {
+        return res.status(400).json({ message: "No redlines available. Generate redlines first." });
+      }
+
+      const docxBuffer = await generateRedlineDocx(
+        contract.extractedText,
+        contract.analysis.redlines,
+        contract.name
+      );
+
+      const filename = `${contract.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_redlined.docx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(docxBuffer);
+    } catch (error) {
+      console.error("Redline .docx export error:", error);
+      res.status(500).json({ message: "Failed to export redlined document" });
     }
   });
 

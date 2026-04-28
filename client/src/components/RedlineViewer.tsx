@@ -2,10 +2,11 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown } from "lucide-react";
+import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download } from "lucide-react";
 import type { Redline } from "@shared/schema";
 
 interface RedlineViewerProps {
+  contractId: number;
   contractText: string;
   redlines: Redline[];
   contractName: string;
@@ -88,10 +89,32 @@ function buildCleanCopy(contractText: string, redlines: Redline[]): string {
   return output;
 }
 
-export function RedlineViewer({ contractText, redlines, contractName, open, onClose }: RedlineViewerProps) {
+export function RedlineViewer({ contractId, contractText, redlines, contractName, open, onClose }: RedlineViewerProps) {
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
+
+  const handleDownloadDocx = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/export/redlines`, { credentials: "include" });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${contractName.replace(/[^a-zA-Z0-9_-]/g, "_")}_redlined.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fall through; user will see no download
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const segments = buildSegments(contractText, redlines);
   const insertionRedlines = redlines.filter(r => !r.originalText || r.originalText.trim() === "");
@@ -189,6 +212,20 @@ export function RedlineViewer({ contractText, redlines, contractName, open, onCl
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadDocx}
+              disabled={downloading}
+              data-testid="button-download-docx"
+              className="h-8 text-xs"
+            >
+              {downloading ? (
+                <><Download className="h-3.5 w-3.5 mr-1.5 animate-bounce" />Downloading...</>
+              ) : (
+                <><Download className="h-3.5 w-3.5 mr-1.5" />Download .docx</>
+              )}
+            </Button>
             <Button
               variant="outline"
               size="sm"

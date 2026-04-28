@@ -65,6 +65,8 @@ Redline IQ is a contract analysis web application designed to empower individual
     -   **Account Deletion**: Full atomic transaction for user data removal upon account deletion.
     -   **Smart Redline Generator**: "Redlines" button on the contract analysis page triggers AI generation of tracked-change edits — red strikethrough (deleted text) and green underline (replacement text), identical to lawyer track-changes markup. Each edit is numbered with a reason annotation. Full-screen sheet viewer with edit summary sidebar, prev/next navigation, and "Copy Redlined Text" button (outputs `[DELETED]`/`[ADDED]` markers for Word/Google Docs). Results cached per contract in `analysis.redlines`. Schema: `Redline` type with `id`, `originalText`, `replacementText`, `reason`, `riskFlagTitle`. Endpoint: `POST /api/contracts/:id/redlines`.
 
+    -   **Redline .docx Export**: "Download .docx" button in the RedlineViewer toolbar generates a proper Word document with native track-changes markup (`<w:ins>` for additions, `<w:del>` for deletions). Uses JSZip + raw OOXML generation. Opens in Word and Google Docs with Accept/Reject controls per edit. Endpoint: `GET /api/contracts/:id/export/redlines`. Function: `generateRedlineDocx` in `server/export.ts`.
+
 ### External Dependencies
 -   **AI**: OpenAI GPT-5.2 via Replit AI Integrations
 -   **Database**: PostgreSQL
@@ -73,3 +75,4 @@ Redline IQ is a contract analysis web application designed to empower individual
 -   **Password Hashing**: `bcryptjs`
 -   **File Parsing**: `pdf-parse`, `mammoth` (for DOCX), OpenAI Vision (for images)
 -   **UI Icons**: `lucide-react`
+-   **DOCX Generation**: `jszip` (raw OOXML track-changes export)
