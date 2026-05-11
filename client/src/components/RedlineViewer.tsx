@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown, CheckSquare, Info } from "lucide-react";
+import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown, CheckSquare, Info, EyeOff, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Redline } from "@shared/schema";
 
@@ -154,6 +154,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const [activeRedline, setActiveRedline] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => restoreSelection(contractId, redlines));
   const [statusMap, setStatusMap] = useState<Record<number, EditStatus>>({});
+  const [hideExcluded, setHideExcluded] = useState(false);
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
   const editSummaryRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
@@ -441,8 +442,24 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           <span className="flex items-center gap-1 text-muted-foreground border-l border-border pl-4">
             <CheckSquare className="h-3 w-3 shrink-0" /> checked = included in download
           </span>
-          <span className="text-muted-foreground ml-auto">
+          <span className="text-muted-foreground ml-auto flex items-center gap-2">
             {redlines.length} edit{redlines.length !== 1 ? "s" : ""}
+            {!allSelected && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs px-2 gap-1"
+                onClick={() => setHideExcluded(prev => !prev)}
+                data-testid="button-toggle-hide-excluded"
+                title={hideExcluded ? "Show excluded edits in preview" : "Hide excluded edits from preview"}
+              >
+                {hideExcluded ? (
+                  <><Eye className="h-3 w-3" />Show excluded</>
+                ) : (
+                  <><EyeOff className="h-3 w-3" />Hide excluded</>
+                )}
+              </Button>
+            )}
           </span>
         </div>
 
@@ -477,6 +494,9 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
               const isActive = activeRedline === r.id;
               const status = getStatus(r.id);
               const isSelected = selectedIds.has(r.id);
+              if (!isSelected && hideExcluded) {
+                return <span key={i}>{seg.content}</span>;
+              }
               return (
                 <span
                   key={i}
@@ -515,12 +535,12 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           </div>
 
           {/* Unmatched replacements — originalText present but position couldn't be resolved */}
-          {unmatchedRedlines.length > 0 && (
+          {unmatchedRedlines.filter(r => !hideExcluded || selectedIds.has(r.id)).length > 0 && (
             <div className="px-5 pb-5 space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground border-t pt-4">
                 Additional Replacements
               </h3>
-              {unmatchedRedlines.map((r) => {
+              {unmatchedRedlines.filter(r => !hideExcluded || selectedIds.has(r.id)).map((r) => {
                 const status = getStatus(r.id);
                 const isSelected = selectedIds.has(r.id);
                 return (
@@ -556,12 +576,12 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           )}
 
           {/* Insertion-only redlines (missing clauses with no original text) */}
-          {insertionRedlines.length > 0 && (
+          {insertionRedlines.filter(r => !hideExcluded || selectedIds.has(r.id)).length > 0 && (
             <div className="px-5 pb-5 space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground border-t pt-4">
                 Suggested Additions (missing clauses)
               </h3>
-              {insertionRedlines.map((r) => {
+              {insertionRedlines.filter(r => !hideExcluded || selectedIds.has(r.id)).map((r) => {
                 const status = getStatus(r.id);
                 const isSelected = selectedIds.has(r.id);
                 return (
