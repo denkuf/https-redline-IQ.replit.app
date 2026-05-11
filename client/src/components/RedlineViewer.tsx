@@ -103,20 +103,45 @@ function buildCleanCopy(
 /** localStorage key for persisting per-contract download selection */
 const selectionKey = (id: number) => `redlineiq_selection_${id}`;
 
+interface StoredSelection {
+  fingerprint: string;
+  ids: number[];
+}
+
+/**
+ * Content-based fingerprint of the current redlines array.
+ * Because IDs are always assigned as 1..N on each generation, a pure
+ * ID-subset check would incorrectly accept stale selections after
+ * regeneration. Including a slice of each redline's content catches
+ * regenerations that reuse the same IDs with different edits.
+ */
+function redlineFingerprint(redlines: Redline[]): string {
+  return redlines
+    .map(r => `${r.id}:${(r.originalText ?? r.replacementText ?? "").slice(0, 40)}`)
+    .sort()
+    .join("|");
+}
+
 /**
  * Restore the saved selection for a contract.
- * Returns the stored Set if every saved ID still exists in the current redlines
- * (guards against regenerated redlines with new IDs).
- * Falls back to all-selected when nothing is stored or IDs are stale.
+ * Returns the stored Set only when the stored fingerprint matches the
+ * current redlines (guards against regenerated sets that reuse IDs).
+ * Falls back to all-selected when nothing is stored, fingerprint is stale,
+ * or redlines haven't loaded yet.
  */
 function restoreSelection(contractId: number, redlines: Redline[]): Set<number> {
   const allIds = new Set(redlines.map(r => r.id));
+  if (redlines.length === 0) return allIds;
   try {
     const raw = localStorage.getItem(selectionKey(contractId));
     if (raw) {
-      const stored: number[] = JSON.parse(raw);
-      if (Array.isArray(stored) && stored.every(id => allIds.has(id))) {
-        return new Set(stored);
+      const stored: StoredSelection = JSON.parse(raw);
+      if (
+        stored.fingerprint === redlineFingerprint(redlines) &&
+        Array.isArray(stored.ids) &&
+        stored.ids.every(id => allIds.has(id))
+      ) {
+        return new Set(stored.ids);
       }
     }
   } catch { /* ignore malformed data */ }
@@ -140,9 +165,16 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   }, [redlines, contractId]);
 
   // Persist the selection to localStorage whenever it changes.
+  // Guard: skip write when redlines haven't loaded (avoids overwriting a saved
+  // selection with an empty-array snapshot from a transient loading state).
   useEffect(() => {
-    localStorage.setItem(selectionKey(contractId), JSON.stringify(Array.from(selectedIds)));
-  }, [selectedIds, contractId]);
+    if (redlines.length === 0) return;
+    const data: StoredSelection = {
+      fingerprint: redlineFingerprint(redlines),
+      ids: Array.from(selectedIds),
+    };
+    localStorage.setItem(selectionKey(contractId), JSON.stringify(data));
+  }, [selectedIds, contractId, redlines]);
 
   const allSelected = selectedIds.size === redlines.length;
   const noneSelected = selectedIds.size === 0;
