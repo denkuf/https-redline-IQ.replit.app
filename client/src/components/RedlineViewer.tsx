@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown, CheckSquare } from "lucide-react";
+import { X, Copy, Check, FileEdit, ChevronUp, ChevronDown, Download, ThumbsUp, ThumbsDown, CheckSquare, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Redline } from "@shared/schema";
 
@@ -107,6 +107,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set(redlines.map(r => r.id)));
   const [statusMap, setStatusMap] = useState<Record<number, EditStatus>>({});
   const redlineRefs = useRef<Record<number, HTMLElement | null>>({});
+  const editSummaryRef = useRef<HTMLDivElement | null>(null);
   const { toast } = useToast();
 
   // Keep selectedIds in sync when redlines change (e.g. after regeneration)
@@ -384,6 +385,26 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           </span>
         </div>
 
+        {/* Excluded edits banner */}
+        {!allSelected && redlines.length > 0 && (
+          <div
+            className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 shrink-0"
+            data-testid="banner-excluded-edits"
+          >
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              <strong>{redlines.length - selectedIds.size}</strong> edit{redlines.length - selectedIds.size !== 1 ? "s" : ""} excluded — uncheck all to download a clean copy
+            </span>
+            <button
+              className="ml-auto font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200 shrink-0"
+              onClick={() => editSummaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              data-testid="link-manage-excluded-edits"
+            >
+              Manage
+            </button>
+          </div>
+        )}
+
         {/* Contract body with inline diffs */}
         <div className="flex-1 overflow-y-auto">
           <div className="px-5 py-5 font-mono text-sm leading-relaxed whitespace-pre-wrap" data-testid="redline-contract-body">
@@ -514,7 +535,7 @@ export function RedlineViewer({ contractId, contractText, redlines, contractName
           )}
 
           {/* Edit summary (numbered list for all redlines) */}
-          <div className="px-5 pb-8 space-y-2 border-t mt-2 pt-4">
+          <div ref={editSummaryRef} className="px-5 pb-8 space-y-2 border-t mt-2 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">
                 Edit Summary
