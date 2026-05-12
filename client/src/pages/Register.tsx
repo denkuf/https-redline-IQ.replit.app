@@ -64,12 +64,12 @@ export default function Register() {
       <div className="relative z-10 flex-1 flex flex-col justify-center px-6 py-6 max-w-sm mx-auto w-full">
         {/* Logo + heading */}
         <div className="flex flex-col items-center text-center mb-8">
-          <Logo size="lg" showText={false} iconOnly className="mb-5" />
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1.5">
+          <Logo size="xl" className="mb-6" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1.5">
             Create your account
           </h1>
           <p className="text-muted-foreground text-sm">
-            Join <span className="font-semibold text-foreground">Redline<span className="text-destructive">IQ</span></span> and start analyzing contracts
+            Sign up free and start analyzing contracts
           </p>
         </div>
 
