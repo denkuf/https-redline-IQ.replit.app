@@ -13,6 +13,7 @@ import { OnboardingTutorial } from "@/components/OnboardingTutorial";
 import { useAuth } from "@/hooks/use-auth";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Loader2 } from "lucide-react";
+import Onboarding from "@/pages/Onboarding";
 import Home from "@/pages/Home";
 import ContractAnalysis from "@/pages/ContractAnalysis";
 import ContractCompare from "@/pages/ContractCompare";
@@ -122,14 +123,20 @@ function LoadingScreen() {
   );
 }
 
+function LandingOrOnboarding() {
+  const hasOnboarded = !!localStorage.getItem("redlineiq_onboarded");
+  if (!hasOnboarded) return <Onboarding />;
+  return <Landing />;
+}
+
 function PublicRouter() {
   return (
     <Switch>
       <Route path="/shared/:token" component={SharedSummaryView} />
-      <Route path="/" component={Landing} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route component={Landing} />
+      <Route component={LandingOrOnboarding} />
     </Switch>
   );
 }
